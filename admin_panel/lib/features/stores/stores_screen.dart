@@ -55,8 +55,8 @@ class StoresScreen extends ConsumerWidget {
                           Row(
                             children: [
                               CircleAvatar(
-                                backgroundImage: store['image_url'] != null ? NetworkImage(store['image_url']) : null,
-                                child: store['image_url'] == null ? const Icon(Icons.store) : null,
+                                backgroundImage: store['logo_url'] != null ? NetworkImage(store['logo_url']) : null,
+                                child: store['logo_url'] == null ? const Icon(Icons.store) : null,
                               ),
                               const SizedBox(width: 8),
                               Text(store['name'] ?? ''),
@@ -168,7 +168,7 @@ class _AddEditStoreDialogState extends State<_AddEditStoreDialog> {
     _commissionController = TextEditingController(text: widget.store?['commission_rate']?.toString() ?? '10.0');
     _openingTimeController = TextEditingController(text: widget.store?['opening_time'] ?? '09:00:00');
     _closingTimeController = TextEditingController(text: widget.store?['closing_time'] ?? '23:00:00');
-    _logoUrlController = TextEditingController(text: widget.store?['image_url'] ?? '');
+    _logoUrlController = TextEditingController(text: widget.store?['logo_url'] ?? '');
     _isActive = widget.store?['is_active'] ?? true;
     _isOpen = widget.store?['is_open'] ?? true;
   }
@@ -271,7 +271,7 @@ class _AddEditStoreDialogState extends State<_AddEditStoreDialog> {
       try {
         final data = {
           'name': _nameController.text,
-          'image_url': _logoUrlController.text.isEmpty ? null : _logoUrlController.text,
+          'logo_url': _logoUrlController.text.isEmpty ? null : _logoUrlController.text,
           'address': _addressController.text,
           'delivery_radius_km': double.tryParse(_radiusController.text) ?? 5.0,
           'commission_rate': double.tryParse(_commissionController.text) ?? 10.0,
