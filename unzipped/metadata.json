@@ -1,0 +1,6 @@
+{
+  "name": "عزومة",
+  "description": "تطبيق عزومة لتوصيل الطعام والطلبات والبقالة بأسرع وقت وبأفضل العروض",
+  "requestFramePermissions": [],
+  "majorCapabilities": ["MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"]
+}
