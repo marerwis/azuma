@@ -3,6 +3,8 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 import 'core/theme/admin_theme.dart';
 import 'features/dashboard/dashboard_layout.dart';
+import 'features/auth/login_screen.dart';
+import 'features/auth/providers/auth_provider.dart';
 
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
@@ -15,11 +17,13 @@ void main() async {
   runApp(const ProviderScope(child: AdminPanelApp()));
 }
 
-class AdminPanelApp extends StatelessWidget {
+class AdminPanelApp extends ConsumerWidget {
   const AdminPanelApp({super.key});
 
   @override
-  Widget build(BuildContext context) {
+  Widget build(BuildContext context, WidgetRef ref) {
+    final authState = ref.watch(authProvider);
+
     return MaterialApp(
       title: 'Azooma Admin Panel',
       debugShowCheckedModeBanner: false,
@@ -30,7 +34,17 @@ class AdminPanelApp extends StatelessWidget {
           child: child!,
         );
       },
-      home: const DashboardLayout(),
+      home: authState.when(
+        data: (user) {
+          if (user != null) {
+            return const DashboardLayout();
+          } else {
+            return const LoginScreen();
+          }
+        },
+        loading: () => const Scaffold(body: Center(child: CircularProgressIndicator())),
+        error: (e, st) => const LoginScreen(),
+      ),
     );
   }
 }
