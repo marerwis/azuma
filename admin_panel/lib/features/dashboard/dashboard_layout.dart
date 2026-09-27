@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'providers/navigation_provider.dart';
 import '../stores/stores_screen.dart';
+import '../orders/orders_screen.dart';
 
 class DashboardLayout extends ConsumerWidget {
   const DashboardLayout({super.key});
@@ -82,7 +83,7 @@ class DashboardLayout extends ConsumerWidget {
       case 3:
         return const Center(child: Text('الأقسام والمنتجات - Categories & Products (CRUD)', style: TextStyle(fontSize: 24)));
       case 4:
-        return const Center(child: Text('الطلبات - Orders (Read/Update Status)', style: TextStyle(fontSize: 24)));
+        return const OrdersScreen();
       case 5:
         return const Center(child: Text('المحافظ - Wallets & Transactions (Read)', style: TextStyle(fontSize: 24)));
       case 6:
