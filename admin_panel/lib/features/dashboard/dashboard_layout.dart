@@ -7,6 +7,7 @@ import '../wallets/wallets_screen.dart';
 import '../banners/banners_screen.dart';
 import '../categories/categories_screen.dart';
 import '../users/users_screen.dart';
+import 'overview_screen.dart';
 
 class DashboardLayout extends ConsumerWidget {
   const DashboardLayout({super.key});
@@ -79,7 +80,7 @@ class DashboardLayout extends ConsumerWidget {
   Widget _buildPageContent(int index) {
     switch (index) {
       case 0:
-        return const Center(child: Text('الرئيسية - Overview', style: TextStyle(fontSize: 24)));
+        return const OverviewScreen();
       case 1:
         return const BannersScreen();
       case 2:
@@ -93,7 +94,7 @@ class DashboardLayout extends ConsumerWidget {
       case 6:
         return const UsersScreen();
       default:
-        return const Center(child: Text('الرئيسية - Overview', style: TextStyle(fontSize: 24)));
+        return const OverviewScreen();
     }
   }
 }
