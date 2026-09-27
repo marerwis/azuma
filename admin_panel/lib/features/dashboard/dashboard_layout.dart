@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'providers/navigation_provider.dart';
+import '../stores/stores_screen.dart';
 
 class DashboardLayout extends ConsumerWidget {
   const DashboardLayout({super.key});
@@ -77,7 +78,7 @@ class DashboardLayout extends ConsumerWidget {
       case 1:
         return const Center(child: Text('إدارة العروض - Banners & Offers (CRUD)', style: TextStyle(fontSize: 24)));
       case 2:
-        return const Center(child: Text('إدارة المطاعم - Stores (CRUD)', style: TextStyle(fontSize: 24)));
+        return const StoresScreen();
       case 3:
         return const Center(child: Text('الأقسام والمنتجات - Categories & Products (CRUD)', style: TextStyle(fontSize: 24)));
       case 4:
