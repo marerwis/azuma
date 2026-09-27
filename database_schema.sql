@@ -3,7 +3,7 @@
 
 -- ENUMS
 CREATE TYPE user_role AS ENUM ('customer', 'driver', 'vendor', 'admin');
-CREATE TYPE order_status AS ENUM ('pending', 'accepted', 'preparing', 'ready', 'picked_up', 'delivered', 'cancelled');
+CREATE TYPE order_status AS ENUM ('pending', 'accepted_by_vendor', 'rejected_by_vendor', 'preparing', 'ready_for_pickup', 'delivered', 'cancelled');
 CREATE TYPE transaction_type AS ENUM ('recharge', 'payment', 'earning', 'withdrawal', 'refund');
 
 -- 1. USERS
@@ -33,6 +33,8 @@ CREATE TABLE stores (
     longitude DOUBLE PRECISION NOT NULL,
     delivery_radius_km DOUBLE PRECISION DEFAULT 5.0,
     commission_rate DOUBLE PRECISION DEFAULT 10.0,
+    opening_time TIME,
+    closing_time TIME,
     is_active BOOLEAN DEFAULT TRUE,
     is_open BOOLEAN DEFAULT TRUE,
     created_at TIMESTAMPTZ DEFAULT NOW(),

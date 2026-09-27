@@ -65,7 +65,7 @@ class DashboardLayout extends ConsumerWidget {
       ),
       selected: isSelected,
       onTap: () {
-        ref.read(selectedIndexProvider.notifier).state = index;
+        ref.read(selectedIndexProvider.notifier).setIndex(index);
       },
     );
   }
