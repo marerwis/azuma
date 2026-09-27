@@ -3,6 +3,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../banners/providers/banner_provider.dart';
 import '../categories/providers/category_provider.dart';
 import '../stores/providers/store_provider.dart';
+import 'providers/navigation_provider.dart';
 
 class OverviewScreen extends ConsumerWidget {
   const OverviewScreen({super.key});
@@ -64,7 +65,9 @@ class OverviewScreen extends ConsumerWidget {
               children: [
                 const Text('1. العروض الترويجية (Top Promo Banners)', style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold, color: Color(0xFFFF5722))),
                 TextButton.icon(
-                  onPressed: () {}, // Handled in full BannersScreen
+                  onPressed: () {
+                    ref.read(selectedIndexProvider.notifier).setIndex(1); // 1 = Banners
+                  },
                   icon: const Icon(Icons.edit),
                   label: const Text('إدارة التفاصيل'),
                 ),
@@ -131,7 +134,9 @@ class OverviewScreen extends ConsumerWidget {
               children: [
                 const Text('2. الأقسام (Categories - 8 Items limit)', style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold, color: Color(0xFFFF5722))),
                 TextButton.icon(
-                  onPressed: () {}, // Handled in CategoriesScreen
+                  onPressed: () {
+                    ref.read(selectedIndexProvider.notifier).setIndex(3); // 3 = Categories
+                  },
                   icon: const Icon(Icons.edit),
                   label: const Text('إدارة الأقسام'),
                 ),

@@ -11,10 +11,8 @@ class UserRepository {
     return List<Map<String, dynamic>>.from(response);
   }
 
-  Future<void> updateUserRole(String id, String newRole) async {
-    await _client.from('users').update({
-      'role': newRole,
-      'updated_at': DateTime.now().toIso8601String(),
-    }).eq('id', id);
+  Future<void> updateUserData(String id, Map<String, dynamic> data) async {
+    data['updated_at'] = DateTime.now().toIso8601String();
+    await _client.from('users').update(data).eq('id', id);
   }
 }
