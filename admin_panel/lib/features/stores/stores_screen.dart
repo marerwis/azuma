@@ -1,6 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
-import 'package:file_picker/file_picker.dart';
+import 'package:image_picker/image_picker.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 import 'providers/store_provider.dart';
 import 'store_menu_screen.dart';
@@ -161,6 +161,7 @@ class _AddEditStoreDialogState extends State<_AddEditStoreDialog> {
   bool _isOpen = true;
   bool _isLoading = false;
   bool _isUploading = false;
+  final ImagePicker _picker = ImagePicker();
 
   @override
   void initState() {
@@ -320,16 +321,13 @@ class _AddEditStoreDialogState extends State<_AddEditStoreDialog> {
 
   Future<void> _pickAndUploadImage() async {
     try {
-      FilePickerResult? result = await FilePicker.platform.pickFiles(
-        type: FileType.image,
-        withData: true, // Needed for Web
-      );
+      final XFile? image = await _picker.pickImage(source: ImageSource.gallery);
 
-      if (result != null && result.files.first.bytes != null) {
+      if (image != null) {
         setState(() => _isUploading = true);
         
-        final fileBytes = result.files.first.bytes!;
-        final fileName = result.files.first.name;
+        final fileBytes = await image.readAsBytes();
+        final fileName = image.name;
         final uniqueName = '${DateTime.now().millisecondsSinceEpoch}_$fileName';
 
         // Upload to Supabase Storage

@@ -1,6 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
-import 'package:file_picker/file_picker.dart';
+import 'package:image_picker/image_picker.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 import 'providers/category_provider.dart';
 
@@ -138,6 +138,7 @@ class _AddEditCategoryDialogState extends State<_AddEditCategoryDialog> {
   bool _isActive = true;
   bool _isLoading = false;
   bool _isUploading = false;
+  final ImagePicker _picker = ImagePicker();
 
   @override
   void initState() {
@@ -240,16 +241,13 @@ class _AddEditCategoryDialogState extends State<_AddEditCategoryDialog> {
 
   Future<void> _pickAndUploadImage() async {
     try {
-      FilePickerResult? result = await FilePicker.platform.pickFiles(
-        type: FileType.image,
-        withData: true,
-      );
+      final XFile? image = await _picker.pickImage(source: ImageSource.gallery);
 
-      if (result != null && result.files.first.bytes != null) {
+      if (image != null) {
         setState(() => _isUploading = true);
         
-        final fileBytes = result.files.first.bytes!;
-        final fileName = result.files.first.name;
+        final fileBytes = await image.readAsBytes();
+        final fileName = image.name;
         final uniqueName = '${DateTime.now().millisecondsSinceEpoch}_$fileName';
 
         await Supabase.instance.client.storage.from('store_images').uploadBinary(
