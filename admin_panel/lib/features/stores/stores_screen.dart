@@ -1,5 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:file_picker/file_picker.dart';
+import 'package:supabase_flutter/supabase_flutter.dart';
 import 'providers/store_provider.dart';
 import 'store_menu_screen.dart';
 
@@ -55,8 +57,8 @@ class StoresScreen extends ConsumerWidget {
                           Row(
                             children: [
                               CircleAvatar(
-                                backgroundImage: store['logo_url'] != null ? NetworkImage(store['logo_url']) : null,
-                                child: store['logo_url'] == null ? const Icon(Icons.store) : null,
+                                backgroundImage: store['image_url'] != null ? NetworkImage(store['image_url']) : null,
+                                child: store['image_url'] == null ? const Icon(Icons.store) : null,
                               ),
                               const SizedBox(width: 8),
                               Text(store['name'] ?? ''),
@@ -154,10 +156,11 @@ class _AddEditStoreDialogState extends State<_AddEditStoreDialog> {
   late TextEditingController _commissionController;
   late TextEditingController _openingTimeController;
   late TextEditingController _closingTimeController;
-  late TextEditingController _logoUrlController;
+  late TextEditingController _imageUrlController;
   bool _isActive = true;
   bool _isOpen = true;
   bool _isLoading = false;
+  bool _isUploading = false;
 
   @override
   void initState() {
@@ -168,7 +171,7 @@ class _AddEditStoreDialogState extends State<_AddEditStoreDialog> {
     _commissionController = TextEditingController(text: widget.store?['commission_rate']?.toString() ?? '10.0');
     _openingTimeController = TextEditingController(text: widget.store?['opening_time'] ?? '09:00:00');
     _closingTimeController = TextEditingController(text: widget.store?['closing_time'] ?? '23:00:00');
-    _logoUrlController = TextEditingController(text: widget.store?['logo_url'] ?? '');
+    _imageUrlController = TextEditingController(text: widget.store?['image_url'] ?? '');
     _isActive = widget.store?['is_active'] ?? true;
     _isOpen = widget.store?['is_open'] ?? true;
   }
@@ -191,9 +194,21 @@ class _AddEditStoreDialogState extends State<_AddEditStoreDialog> {
                   validator: (val) => val == null || val.isEmpty ? 'مطلوب' : null,
                 ),
                 const SizedBox(height: 16),
-                TextFormField(
-                  controller: _logoUrlController,
-                  decoration: const InputDecoration(labelText: 'رابط الشعار (Logo URL)', border: OutlineInputBorder()),
+                Row(
+                  children: [
+                    Expanded(
+                      child: TextFormField(
+                        controller: _imageUrlController,
+                        decoration: const InputDecoration(labelText: 'رابط الشعار (Image URL)', border: OutlineInputBorder()),
+                      ),
+                    ),
+                    const SizedBox(width: 8),
+                    ElevatedButton.icon(
+                      onPressed: _isUploading ? null : _pickAndUploadImage,
+                      icon: _isUploading ? const SizedBox(width: 16, height: 16, child: CircularProgressIndicator(strokeWidth: 2)) : const Icon(Icons.upload_file),
+                      label: const Text('رفع صورة'),
+                    ),
+                  ],
                 ),
                 const SizedBox(height: 16),
                 TextFormField(
@@ -271,7 +286,7 @@ class _AddEditStoreDialogState extends State<_AddEditStoreDialog> {
       try {
         final data = {
           'name': _nameController.text,
-          'logo_url': _logoUrlController.text.isEmpty ? null : _logoUrlController.text,
+          'image_url': _imageUrlController.text.isEmpty ? null : _imageUrlController.text,
           'address': _addressController.text,
           'delivery_radius_km': double.tryParse(_radiusController.text) ?? 5.0,
           'commission_rate': double.tryParse(_commissionController.text) ?? 10.0,
@@ -299,6 +314,47 @@ class _AddEditStoreDialogState extends State<_AddEditStoreDialog> {
         if (mounted) ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('Error: $e')));
       } finally {
         if (mounted) setState(() => _isLoading = false);
+      }
+    }
+  }
+
+  Future<void> _pickAndUploadImage() async {
+    try {
+      FilePickerResult? result = await FilePicker.platform.pickFiles(
+        type: FileType.image,
+        withData: true, // Needed for Web
+      );
+
+      if (result != null && result.files.first.bytes != null) {
+        setState(() => _isUploading = true);
+        
+        final fileBytes = result.files.first.bytes!;
+        final fileName = result.files.first.name;
+        final uniqueName = '${DateTime.now().millisecondsSinceEpoch}_$fileName';
+
+        // Upload to Supabase Storage
+        await Supabase.instance.client.storage.from('store_images').uploadBinary(
+          uniqueName,
+          fileBytes,
+          fileOptions: const FileOptions(upsert: true),
+        );
+
+        // Get public URL
+        final String publicUrl = Supabase.instance.client.storage.from('store_images').getPublicUrl(uniqueName);
+        
+        setState(() {
+          _imageUrlController.text = publicUrl;
+          _isUploading = false;
+        });
+
+        if (mounted) {
+          ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('تم رفع الصورة بنجاح!'), backgroundColor: Colors.green));
+        }
+      }
+    } catch (e) {
+      setState(() => _isUploading = false);
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('فشل رفع الصورة: $e'), backgroundColor: Colors.red));
       }
     }
   }

@@ -1,5 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:file_picker/file_picker.dart';
+import 'package:supabase_flutter/supabase_flutter.dart';
 import 'providers/category_provider.dart';
 
 class CategoriesScreen extends ConsumerWidget {
@@ -135,6 +137,7 @@ class _AddEditCategoryDialogState extends State<_AddEditCategoryDialog> {
   late TextEditingController _sortController;
   bool _isActive = true;
   bool _isLoading = false;
+  bool _isUploading = false;
 
   @override
   void initState() {
@@ -163,10 +166,22 @@ class _AddEditCategoryDialogState extends State<_AddEditCategoryDialog> {
                   validator: (val) => val == null || val.isEmpty ? 'مطلوب' : null,
                 ),
                 const SizedBox(height: 16),
-                TextFormField(
-                  controller: _imageUrlController,
-                  decoration: const InputDecoration(labelText: 'الرمز التعبيري أو الرابط (Image URL/Emoji)', border: OutlineInputBorder()),
-                  validator: (val) => val == null || val.isEmpty ? 'مطلوب' : null,
+                Row(
+                  children: [
+                    Expanded(
+                      child: TextFormField(
+                        controller: _imageUrlController,
+                        decoration: const InputDecoration(labelText: 'الرمز التعبيري أو الرابط (Image URL/Emoji)', border: OutlineInputBorder()),
+                        validator: (val) => val == null || val.isEmpty ? 'مطلوب' : null,
+                      ),
+                    ),
+                    const SizedBox(width: 8),
+                    ElevatedButton.icon(
+                      onPressed: _isUploading ? null : _pickAndUploadImage,
+                      icon: _isUploading ? const SizedBox(width: 16, height: 16, child: CircularProgressIndicator(strokeWidth: 2)) : const Icon(Icons.upload_file),
+                      label: const Text('رفع صورة'),
+                    ),
+                  ],
                 ),
                 const SizedBox(height: 16),
                 TextFormField(
@@ -219,6 +234,45 @@ class _AddEditCategoryDialogState extends State<_AddEditCategoryDialog> {
         if (mounted) ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('Error: $e')));
       } finally {
         if (mounted) setState(() => _isLoading = false);
+      }
+    }
+  }
+
+  Future<void> _pickAndUploadImage() async {
+    try {
+      FilePickerResult? result = await FilePicker.platform.pickFiles(
+        type: FileType.image,
+        withData: true,
+      );
+
+      if (result != null && result.files.first.bytes != null) {
+        setState(() => _isUploading = true);
+        
+        final fileBytes = result.files.first.bytes!;
+        final fileName = result.files.first.name;
+        final uniqueName = '${DateTime.now().millisecondsSinceEpoch}_$fileName';
+
+        await Supabase.instance.client.storage.from('store_images').uploadBinary(
+          uniqueName,
+          fileBytes,
+          fileOptions: const FileOptions(upsert: true),
+        );
+
+        final String publicUrl = Supabase.instance.client.storage.from('store_images').getPublicUrl(uniqueName);
+        
+        setState(() {
+          _imageUrlController.text = publicUrl;
+          _isUploading = false;
+        });
+
+        if (mounted) {
+          ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('تم رفع الصورة بنجاح!'), backgroundColor: Colors.green));
+        }
+      }
+    } catch (e) {
+      setState(() => _isUploading = false);
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('فشل رفع الصورة: $e'), backgroundColor: Colors.red));
       }
     }
   }
