@@ -4,6 +4,8 @@ import 'providers/navigation_provider.dart';
 import '../stores/stores_screen.dart';
 import '../orders/orders_screen.dart';
 import '../wallets/wallets_screen.dart';
+import '../banners/banners_screen.dart';
+import '../categories/categories_screen.dart';
 
 class DashboardLayout extends ConsumerWidget {
   const DashboardLayout({super.key});
@@ -78,11 +80,11 @@ class DashboardLayout extends ConsumerWidget {
       case 0:
         return const Center(child: Text('الرئيسية - Overview', style: TextStyle(fontSize: 24)));
       case 1:
-        return const Center(child: Text('إدارة العروض - Banners & Offers (CRUD)', style: TextStyle(fontSize: 24)));
+        return const BannersScreen();
       case 2:
         return const StoresScreen();
       case 3:
-        return const Center(child: Text('الأقسام والمنتجات - Categories & Products (CRUD)', style: TextStyle(fontSize: 24)));
+        return const CategoriesScreen();
       case 4:
         return const OrdersScreen();
       case 5:
