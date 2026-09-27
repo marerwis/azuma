@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'core/theme/app_theme.dart';
 import 'features/home/home_screen.dart';
 
@@ -11,7 +12,7 @@ void main() async {
     anonKey: 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImFyaXZveWFlcGN4YW91cHp2dmJ3Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3OTA1MzAwODQsImV4cCI6MjEwNjEwNjA4NH0.ktk8TTu6QZB5PZuYnQl-Qy9Edx3RN8ZPmaR2AGigwok',
   );
 
-  runApp(const MyApp());
+  runApp(const ProviderScope(child: MyApp()));
 }
 
 class MyApp extends StatelessWidget {

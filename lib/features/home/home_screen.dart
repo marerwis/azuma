@@ -1,11 +1,14 @@
 import 'package:flutter/material.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:shimmer/shimmer.dart';
 import '../../core/theme/app_theme.dart';
+import 'providers/home_provider.dart';
 
-class HomeScreen extends StatelessWidget {
+class HomeScreen extends ConsumerWidget {
   const HomeScreen({super.key});
 
   @override
-  Widget build(BuildContext context) {
+  Widget build(BuildContext context, WidgetRef ref) {
     return Scaffold(
       body: SafeArea(
         child: SingleChildScrollView(
@@ -14,16 +17,16 @@ class HomeScreen extends StatelessWidget {
             children: [
               _buildTopLocationBar(),
               const SizedBox(height: 16),
-              _buildPromotionalCarousel(),
+              _buildPromotionalCarousel(ref),
               const SizedBox(height: 24),
               _buildSectionHeader('الأقسام', null),
-              _buildCategoriesGrid(),
+              _buildCategoriesGrid(ref),
               const SizedBox(height: 24),
               _buildSectionHeader('الأعلى تقييماً', null),
-              _buildHorizontalStoreList(),
+              _buildHorizontalStoreList(ref),
               const SizedBox(height: 24),
               _buildSectionHeader('العروض 🏷️', () {}),
-              _buildHorizontalOffersList(),
+              _buildHorizontalOffersList(ref),
               const SizedBox(height: 32),
             ],
           ),
@@ -34,7 +37,7 @@ class HomeScreen extends StatelessWidget {
 
   Widget _buildTopLocationBar() {
     return Padding(
-      padding: const EdgeInsets.symmetric(horizontal: 16.dp, vertical: 8.dp),
+      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
       child: Row(
         mainAxisAlignment: MainAxisAlignment.spaceBetween,
         children: [
@@ -44,9 +47,9 @@ class HomeScreen extends StatelessWidget {
               const SizedBox(width: 8),
               Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
+                children: const [
                   Text('التوصيل إلى', style: TextStyle(fontSize: 12, color: AppTheme.textSecondary)),
-                  const Text('بنغازي، ليبيا', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 14)),
+                  Text('بنغازي، ليبيا', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 14)),
                 ],
               ),
               const Icon(Icons.keyboard_arrow_down, size: 16),
@@ -57,9 +60,7 @@ class HomeScreen extends StatelessWidget {
               IconButton(onPressed: () {}, icon: const Icon(Icons.search)),
               IconButton(
                 onPressed: () {},
-                icon: const Badge(
-                  child: Icon(Icons.notifications_none),
-                ),
+                icon: const Badge(child: Icon(Icons.notifications_none)),
               ),
             ],
           )
@@ -68,60 +69,72 @@ class HomeScreen extends StatelessWidget {
     );
   }
 
-  Widget _buildPromotionalCarousel() {
+  Widget _buildPromotionalCarousel(WidgetRef ref) {
+    final bannersAsync = ref.watch(bannersProvider);
+
     return SizedBox(
       height: 165,
-      child: PageView(
-        controller: PageController(viewportFraction: 0.9),
-        children: [
-          _buildBannerCard('وجباتك المفضلة', 'خصم 20% على أول طلب', 'عرض الأسبوع', const [Color(0xFF0E2A47), Color(0xFFFF4800)]),
-          _buildBannerCard('عروض الجمعة للمشاوي', 'أشهى المأكولات على الفحم', 'خصم 30% 🔥', const [Color(0xFF5D1003), Color(0xFFFF5722)]),
-        ],
+      child: bannersAsync.when(
+        data: (banners) {
+          if (banners.isEmpty) return _buildEmptyState('لا توجد إعلانات');
+          return PageView.builder(
+            controller: PageController(viewportFraction: 0.9),
+            itemCount: banners.length,
+            itemBuilder: (context, index) {
+              final banner = banners[index];
+              return _buildBannerCard(
+                'خصم خاص', // Example static badge text
+                'لا تفوت العروض المذهلة', // Example sub text
+                banner['image_url'],
+              );
+            },
+          );
+        },
+        loading: () => _buildShimmerCarousel(),
+        error: (err, stack) => _buildErrorState('خطأ في تحميل الإعلانات'),
       ),
     );
   }
 
-  Widget _buildBannerCard(String title, String subtitle, String badge, List<Color> colors) {
+  Widget _buildBannerCard(String title, String subtitle, String imageUrl) {
     return Container(
       margin: const EdgeInsets.symmetric(horizontal: 8),
       decoration: BoxDecoration(
         borderRadius: BorderRadius.circular(20),
-        gradient: LinearGradient(colors: colors, begin: Alignment.centerRight, end: Alignment.centerLeft),
+        image: DecorationImage(
+          image: NetworkImage(imageUrl),
+          fit: BoxFit.cover,
+        ),
       ),
-      child: Stack(
-        children: [
-          Positioned(
-            top: 12,
-            left: 12, // Since it's RTL, left is end
-            child: Container(
-              padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
-              decoration: BoxDecoration(color: AppTheme.primaryOrange, borderRadius: BorderRadius.circular(12)),
-              child: Text(badge, style: const TextStyle(color: Colors.white, fontSize: 11, fontWeight: FontWeight.bold)),
-            ),
+      child: Container(
+        decoration: BoxDecoration(
+          borderRadius: BorderRadius.circular(20),
+          gradient: LinearGradient(
+            colors: [Colors.black.withOpacity(0.8), Colors.transparent],
+            begin: Alignment.centerRight,
+            end: Alignment.centerLeft,
           ),
-          Padding(
-            padding: const EdgeInsets.all(16),
-            child: Column(
+        ),
+        padding: const EdgeInsets.all(16),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          mainAxisAlignment: MainAxisAlignment.spaceBetween,
+          children: [
+            Column(
               crossAxisAlignment: CrossAxisAlignment.start,
-              mainAxisAlignment: MainAxisAlignment.spaceBetween,
               children: [
-                Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Text(title, style: const TextStyle(color: Colors.white, fontSize: 17, fontWeight: FontWeight.bold)),
-                    const SizedBox(height: 4),
-                    Text(subtitle, style: const TextStyle(color: Colors.white70, fontSize: 12)),
-                  ],
-                ),
-                Container(
-                  padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 6),
-                  decoration: BoxDecoration(color: Colors.white, borderRadius: BorderRadius.circular(20)),
-                  child: const Text('اطلب الآن', style: TextStyle(color: AppTheme.primaryOrange, fontSize: 12, fontWeight: FontWeight.bold)),
-                )
+                Text(title, style: const TextStyle(color: Colors.white, fontSize: 17, fontWeight: FontWeight.bold)),
+                const SizedBox(height: 4),
+                Text(subtitle, style: const TextStyle(color: Colors.white70, fontSize: 12)),
               ],
             ),
-          )
-        ],
+            Container(
+              padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 6),
+              decoration: BoxDecoration(color: Colors.white, borderRadius: BorderRadius.circular(20)),
+              child: const Text('اطلب الآن', style: TextStyle(color: AppTheme.primaryOrange, fontSize: 12, fontWeight: FontWeight.bold)),
+            )
+          ],
+        ),
       ),
     );
   }
@@ -143,49 +156,42 @@ class HomeScreen extends StatelessWidget {
     );
   }
 
-  Widget _buildCategoriesGrid() {
-    final categories = [
-      {'name': 'برجر', 'icon': '🍔'},
-      {'name': 'بيتزا', 'icon': '🍕'},
-      {'name': 'شاورما', 'icon': '🌯'},
-      {'name': 'مقهى', 'icon': '☕'},
-      {'name': 'حلويات', 'icon': '🍰'},
-      {'name': 'مشاوي', 'icon': '🥩'},
-      {'name': 'صحي', 'icon': '🥗'},
-      {'name': 'بقالة', 'icon': '🛍️'},
-    ];
+  Widget _buildCategoriesGrid(WidgetRef ref) {
+    final categoriesAsync = ref.watch(categoriesProvider);
 
     return SizedBox(
       height: 205,
-      child: ListView(
-        scrollDirection: Axis.horizontal,
-        padding: const EdgeInsets.symmetric(horizontal: 16),
-        children: [
-          _buildCategoryColumn(categories.sublist(0, 2)),
-          const SizedBox(width: 10),
-          _buildCategoryColumn(categories.sublist(2, 4)),
-          const SizedBox(width: 10),
-          _buildCategoryColumn(categories.sublist(4, 6)),
-          const SizedBox(width: 10),
-          _buildCategoryColumn(categories.sublist(6, 8)),
-          const SizedBox(width: 10),
-          _buildCategoryColumn(categories.sublist(0, 2)), // Duplicated for scroll effect
-        ],
+      child: categoriesAsync.when(
+        data: (categories) {
+          if (categories.isEmpty) return _buildEmptyState('لا توجد أقسام');
+          // For simplicity, just horizontal list of items if less than 8
+          return ListView.builder(
+            scrollDirection: Axis.horizontal,
+            padding: const EdgeInsets.symmetric(horizontal: 16),
+            itemCount: (categories.length / 2).ceil(),
+            itemBuilder: (context, index) {
+              int firstIndex = index * 2;
+              int secondIndex = firstIndex + 1;
+              return Container(
+                margin: const EdgeInsets.only(left: 10), // RTL: left is spacing to next
+                child: Column(
+                  mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                  children: [
+                    if (firstIndex < categories.length) _buildCategoryItem(categories[firstIndex]),
+                    if (secondIndex < categories.length) _buildCategoryItem(categories[secondIndex]),
+                  ],
+                ),
+              );
+            },
+          );
+        },
+        loading: () => _buildShimmerCategories(),
+        error: (err, stack) => _buildErrorState('خطأ في تحميل الأقسام'),
       ),
     );
   }
 
-  Widget _buildCategoryColumn(List<Map<String, String>> items) {
-    return Column(
-      mainAxisAlignment: MainAxisAlignment.spaceBetween,
-      children: [
-        _buildCategoryItem(items[0]),
-        _buildCategoryItem(items[1]),
-      ],
-    );
-  }
-
-  Widget _buildCategoryItem(Map<String, String> item) {
+  Widget _buildCategoryItem(Map<String, dynamic> item) {
     return SizedBox(
       width: 80,
       child: Column(
@@ -202,31 +208,38 @@ class HomeScreen extends StatelessWidget {
               ],
             ),
             alignment: Alignment.center,
-            child: Text(item['icon']!, style: const TextStyle(fontSize: 32)),
+            child: Text(item['image_url'] ?? '📦', style: const TextStyle(fontSize: 32)), // We used emoji in seed data
           ),
           const SizedBox(height: 6),
-          Text(item['name']!, style: const TextStyle(fontSize: 12, fontWeight: FontWeight.w600, color: AppTheme.textPrimary)),
+          Text(item['name'] ?? '', style: const TextStyle(fontSize: 12, fontWeight: FontWeight.w600, color: AppTheme.textPrimary), maxLines: 1, overflow: TextOverflow.ellipsis),
         ],
       ),
     );
   }
 
-  Widget _buildHorizontalStoreList() {
+  Widget _buildHorizontalStoreList(WidgetRef ref) {
+    final storesAsync = ref.watch(topStoresProvider);
+
     return SizedBox(
       height: 210,
-      child: ListView.separated(
-        scrollDirection: Axis.horizontal,
-        padding: const EdgeInsets.symmetric(horizontal: 16),
-        itemCount: 4,
-        separatorBuilder: (_, __) => const SizedBox(width: 14),
-        itemBuilder: (context, index) {
-          return _buildTopRatedCard();
+      child: storesAsync.when(
+        data: (stores) {
+          if (stores.isEmpty) return _buildEmptyState('لا توجد مطاعم');
+          return ListView.separated(
+            scrollDirection: Axis.horizontal,
+            padding: const EdgeInsets.symmetric(horizontal: 16),
+            itemCount: stores.length,
+            separatorBuilder: (_, __) => const SizedBox(width: 14),
+            itemBuilder: (context, index) => _buildTopRatedCard(stores[index]),
+          );
         },
+        loading: () => _buildShimmerStoreList(),
+        error: (err, stack) => _buildErrorState('خطأ في التحميل'),
       ),
     );
   }
 
-  Widget _buildTopRatedCard() {
+  Widget _buildTopRatedCard(Map<String, dynamic> store) {
     return Container(
       width: 220,
       decoration: BoxDecoration(
@@ -239,30 +252,28 @@ class HomeScreen extends StatelessWidget {
         children: [
           Container(
             height: 115,
-            decoration: const BoxDecoration(
-              borderRadius: BorderRadius.vertical(top: Radius.circular(16)),
-              image: DecorationImage(
-                image: AssetImage('assets/images/food_hero_banner.jpg'),
-                fit: BoxFit.cover,
-              ),
+            decoration: BoxDecoration(
+              borderRadius: const BorderRadius.vertical(top: Radius.circular(16)),
+              color: Colors.grey[200],
             ),
+            child: const Center(child: Icon(Icons.storefront, color: Colors.grey, size: 40)), // Placeholder image
           ),
           Padding(
             padding: const EdgeInsets.all(12),
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                const Text('مطعم الرواق', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 14, color: AppTheme.textPrimary)),
+                Text(store['name'] ?? '', style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 14, color: AppTheme.textPrimary)),
                 const SizedBox(height: 4),
                 Row(
                   children: const [
                     Icon(Icons.star, color: AppTheme.yellow, size: 14),
                     SizedBox(width: 4),
-                    Text('4.8 (120+)', style: TextStyle(fontSize: 11, color: AppTheme.textSecondary)),
+                    Text('جديد', style: TextStyle(fontSize: 11, color: AppTheme.textSecondary)),
                   ],
                 ),
                 const SizedBox(height: 4),
-                const Text('30-40 دقيقة • 5 د.ل توصيل', style: TextStyle(fontSize: 11, color: AppTheme.textSecondary)),
+                Text('30-40 دقيقة • ${store['delivery_fee'] ?? 5} د.ل توصيل', style: const TextStyle(fontSize: 11, color: AppTheme.textSecondary)),
               ],
             ),
           ),
@@ -271,22 +282,29 @@ class HomeScreen extends StatelessWidget {
     );
   }
 
-  Widget _buildHorizontalOffersList() {
+  Widget _buildHorizontalOffersList(WidgetRef ref) {
+    final offersAsync = ref.watch(offersProvider);
+
     return SizedBox(
       height: 220,
-      child: ListView.separated(
-        scrollDirection: Axis.horizontal,
-        padding: const EdgeInsets.symmetric(horizontal: 16),
-        itemCount: 3,
-        separatorBuilder: (_, __) => const SizedBox(width: 14),
-        itemBuilder: (context, index) {
-          return _buildOfferCard();
+      child: offersAsync.when(
+        data: (offers) {
+          if (offers.isEmpty) return _buildEmptyState('لا توجد عروض حالياً');
+          return ListView.separated(
+            scrollDirection: Axis.horizontal,
+            padding: const EdgeInsets.symmetric(horizontal: 16),
+            itemCount: offers.length,
+            separatorBuilder: (_, __) => const SizedBox(width: 14),
+            itemBuilder: (context, index) => _buildOfferCard(offers[index]),
+          );
         },
+        loading: () => _buildShimmerOffersList(),
+        error: (err, stack) => _buildErrorState('خطأ في التحميل'),
       ),
     );
   }
 
-  Widget _buildOfferCard() {
+  Widget _buildOfferCard(Map<String, dynamic> offer) {
     return Container(
       width: 260,
       decoration: BoxDecoration(
@@ -299,30 +317,28 @@ class HomeScreen extends StatelessWidget {
         children: [
           Container(
             height: 120,
-            decoration: const BoxDecoration(
-              borderRadius: BorderRadius.vertical(top: Radius.circular(16)),
-              image: DecorationImage(
-                image: AssetImage('assets/images/welcome_pizza_bg.jpg'),
-                fit: BoxFit.cover,
-              ),
+            decoration: BoxDecoration(
+              borderRadius: const BorderRadius.vertical(top: Radius.circular(16)),
+              color: Colors.grey[200],
             ),
+            child: const Center(child: Icon(Icons.local_offer, color: Colors.grey, size: 40)),
           ),
           Padding(
             padding: const EdgeInsets.all(12),
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                const Text('شاورما كينج', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 14, color: AppTheme.textPrimary)),
+                Text(offer['name'] ?? '', style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 14, color: AppTheme.textPrimary)),
                 const SizedBox(height: 4),
                 Row(
                   mainAxisAlignment: MainAxisAlignment.spaceBetween,
                   children: [
-                    const Text('توصيل 0 د.ل', style: TextStyle(color: AppTheme.primaryOrange, fontWeight: FontWeight.bold, fontSize: 12)),
+                    const Text('توصيل مجاني', style: TextStyle(color: AppTheme.primaryOrange, fontWeight: FontWeight.bold, fontSize: 12)),
                     Row(
                       children: const [
                         Icon(Icons.star, color: AppTheme.yellow, size: 14),
                         SizedBox(width: 4),
-                        Text('4.5', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 12, color: AppTheme.textSecondary)),
+                        Text('جديد', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 12, color: AppTheme.textSecondary)),
                       ],
                     ),
                   ],
@@ -334,8 +350,87 @@ class HomeScreen extends StatelessWidget {
       ),
     );
   }
-}
 
-extension on num {
-  double get dp => toDouble();
+  // --- Shimmer Loading States ---
+
+  Widget _buildShimmerCarousel() {
+    return Shimmer.fromColors(
+      baseColor: Colors.grey[300]!,
+      highlightColor: Colors.grey[100]!,
+      child: Container(
+        margin: const EdgeInsets.symmetric(horizontal: 16),
+        decoration: BoxDecoration(color: Colors.white, borderRadius: BorderRadius.circular(20)),
+      ),
+    );
+  }
+
+  Widget _buildShimmerCategories() {
+    return Shimmer.fromColors(
+      baseColor: Colors.grey[300]!,
+      highlightColor: Colors.grey[100]!,
+      child: ListView.builder(
+        scrollDirection: Axis.horizontal,
+        padding: const EdgeInsets.symmetric(horizontal: 16),
+        itemCount: 4,
+        itemBuilder: (_, __) => Padding(
+          padding: const EdgeInsets.only(left: 10),
+          child: Column(
+            mainAxisAlignment: MainAxisAlignment.spaceBetween,
+            children: [
+              Container(width: 68, height: 68, decoration: BoxDecoration(color: Colors.white, borderRadius: BorderRadius.circular(20))),
+              Container(width: 68, height: 68, decoration: BoxDecoration(color: Colors.white, borderRadius: BorderRadius.circular(20))),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+
+  Widget _buildShimmerStoreList() {
+    return Shimmer.fromColors(
+      baseColor: Colors.grey[300]!,
+      highlightColor: Colors.grey[100]!,
+      child: ListView.separated(
+        scrollDirection: Axis.horizontal,
+        padding: const EdgeInsets.symmetric(horizontal: 16),
+        itemCount: 3,
+        separatorBuilder: (_, __) => const SizedBox(width: 14),
+        itemBuilder: (_, __) => Container(
+          width: 220,
+          decoration: BoxDecoration(color: Colors.white, borderRadius: BorderRadius.circular(16)),
+        ),
+      ),
+    );
+  }
+
+  Widget _buildShimmerOffersList() {
+    return Shimmer.fromColors(
+      baseColor: Colors.grey[300]!,
+      highlightColor: Colors.grey[100]!,
+      child: ListView.separated(
+        scrollDirection: Axis.horizontal,
+        padding: const EdgeInsets.symmetric(horizontal: 16),
+        itemCount: 2,
+        separatorBuilder: (_, __) => const SizedBox(width: 14),
+        itemBuilder: (_, __) => Container(
+          width: 260,
+          decoration: BoxDecoration(color: Colors.white, borderRadius: BorderRadius.circular(16)),
+        ),
+      ),
+    );
+  }
+
+  // --- Empty / Error States ---
+
+  Widget _buildEmptyState(String message) {
+    return Center(
+      child: Text(message, style: const TextStyle(color: AppTheme.textSecondary)),
+    );
+  }
+
+  Widget _buildErrorState(String message) {
+    return Center(
+      child: Text(message, style: const TextStyle(color: Colors.redAccent)),
+    );
+  }
 }
