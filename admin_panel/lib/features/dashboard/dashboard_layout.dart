@@ -6,6 +6,7 @@ import '../orders/orders_screen.dart';
 import '../wallets/wallets_screen.dart';
 import '../banners/banners_screen.dart';
 import '../categories/categories_screen.dart';
+import '../users/users_screen.dart';
 
 class DashboardLayout extends ConsumerWidget {
   const DashboardLayout({super.key});
@@ -90,7 +91,7 @@ class DashboardLayout extends ConsumerWidget {
       case 5:
         return const WalletsScreen();
       case 6:
-        return const Center(child: Text('المستخدمين - Users (CRUD)', style: TextStyle(fontSize: 24)));
+        return const UsersScreen();
       default:
         return const Center(child: Text('الرئيسية - Overview', style: TextStyle(fontSize: 24)));
     }
