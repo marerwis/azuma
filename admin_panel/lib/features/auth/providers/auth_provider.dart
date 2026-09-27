@@ -5,23 +5,19 @@ final authStateProvider = StreamProvider<AuthState>((ref) {
   return Supabase.instance.client.auth.onAuthStateChange;
 });
 
-class AuthNotifier extends StateNotifier<AsyncValue<User?>> {
+class AuthNotifier extends AsyncNotifier<User?> {
   final SupabaseClient _client = Supabase.instance.client;
 
-  AuthNotifier() : super(const AsyncValue.loading()) {
-    _checkInitialSession();
-  }
-
-  Future<void> _checkInitialSession() async {
+  @override
+  Future<User?> build() async {
     final session = _client.auth.currentSession;
     if (session != null) {
-      await _verifyAdminRole(session.user);
-    } else {
-      state = const AsyncValue.data(null);
+      return await _verifyAdminRole(session.user);
     }
+    return null;
   }
 
-  Future<void> _verifyAdminRole(User user) async {
+  Future<User?> _verifyAdminRole(User user) async {
     try {
       final response = await _client
           .from('users')
@@ -30,15 +26,14 @@ class AuthNotifier extends StateNotifier<AsyncValue<User?>> {
           .maybeSingle();
 
       if (response != null && response['role'] == 'admin') {
-        state = AsyncValue.data(user);
+        return user;
       } else {
-        // Not an admin, sign out immediately
         await _client.auth.signOut();
-        state = AsyncValue.error('عفواً، ليس لديك صلاحية للدخول إلى لوحة التحكم', StackTrace.current);
+        throw 'عفواً، ليس لديك صلاحية للدخول إلى لوحة التحكم';
       }
     } catch (e) {
       await _client.auth.signOut();
-      state = AsyncValue.error('خطأ في التحقق من الصلاحيات: $e', StackTrace.current);
+      throw 'خطأ في التحقق من الصلاحيات: $e';
     }
   }
 
@@ -50,12 +45,13 @@ class AuthNotifier extends StateNotifier<AsyncValue<User?>> {
         password: password,
       );
       if (response.user != null) {
-        await _verifyAdminRole(response.user!);
+        final verifiedUser = await _verifyAdminRole(response.user!);
+        state = AsyncValue.data(verifiedUser);
       } else {
         state = const AsyncValue.data(null);
       }
-    } catch (e) {
-      state = AsyncValue.error(e, StackTrace.current);
+    } catch (e, st) {
+      state = AsyncValue.error(e, st);
     }
   }
 
@@ -65,6 +61,6 @@ class AuthNotifier extends StateNotifier<AsyncValue<User?>> {
   }
 }
 
-final authProvider = StateNotifierProvider<AuthNotifier, AsyncValue<User?>>((ref) {
+final authProvider = AsyncNotifierProvider<AuthNotifier, User?>(() {
   return AuthNotifier();
 });

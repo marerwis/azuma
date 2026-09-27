@@ -7,7 +7,7 @@ class CategoryRepository {
     final response = await _client
         .from('categories')
         .select('*')
-        .is_('store_id', null) // Only global categories
+        .isFilter('store_id', null) // Only global categories
         .order('sort_order', ascending: true);
     return List<Map<String, dynamic>>.from(response);
   }
