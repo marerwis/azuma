@@ -6,7 +6,7 @@ class ProductRepository {
   Future<List<Map<String, dynamic>>> getProductsByStore(String storeId) async {
     final response = await _client
         .from('products')
-        .select('*, categories(*)')
+        .select('*, menu_categories(*)')
         .eq('store_id', storeId)
         .order('created_at', ascending: false);
     return List<Map<String, dynamic>>.from(response);
