@@ -11,6 +11,17 @@ class StoreRepository {
     return List<Map<String, dynamic>>.from(response);
   }
 
+  /// Fetches only stores that belong to a specific [appCategoryId].
+  Future<List<Map<String, dynamic>>> getStoresByCategory(
+      String appCategoryId) async {
+    final response = await _client
+        .from('stores')
+        .select('*')
+        .eq('app_category_id', appCategoryId)
+        .order('created_at', ascending: false);
+    return List<Map<String, dynamic>>.from(response);
+  }
+
   Future<void> createStore(Map<String, dynamic> data) async {
     await _client.from('stores').insert(data);
   }

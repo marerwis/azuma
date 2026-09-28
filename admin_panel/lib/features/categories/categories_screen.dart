@@ -3,6 +3,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:image_picker/image_picker.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 import 'providers/category_provider.dart';
+import 'category_children_screen.dart';
 
 class CategoriesScreen extends ConsumerWidget {
   const CategoriesScreen({super.key});
@@ -31,7 +32,9 @@ class CategoriesScreen extends ConsumerWidget {
       ),
       body: categoriesAsync.when(
         data: (categories) {
-          if (categories.isEmpty) return const Center(child: Text('لا توجد أقسام'));
+          if (categories.isEmpty) {
+            return const Center(child: Text('لا توجد أقسام'));
+          }
           return SingleChildScrollView(
             padding: const EdgeInsets.all(16.0),
             child: SizedBox(
@@ -49,53 +52,152 @@ class CategoriesScreen extends ConsumerWidget {
                   ],
                   rows: categories.map((category) {
                     final isActive = category['is_active'] == true;
+                    final imageVal = category['image_url'] as String?;
+                    final hasUrl =
+                        imageVal != null && imageVal.contains('.');
+                    final imageUrl = hasUrl
+                        ? (imageVal.startsWith('http')
+                            ? imageVal
+                            : 'https://arivoyaepcxaoupzvvbw.supabase.co/storage/v1/object/public/store_images/$imageVal')
+                        : null;
+
                     return DataRow(
                       cells: [
+                        // ── Image / Emoji ──────────────────────────────────
                         DataCell(
                           CircleAvatar(
-                            backgroundImage: (category['image_url'] != null && category['image_url'].toString().contains('.'))
-                                ? NetworkImage(category['image_url'].toString().startsWith('http') 
-                                    ? category['image_url'] 
-                                    : 'https://arivoyaepcxaoupzvvbw.supabase.co/storage/v1/object/public/store_images/${category['image_url']}')
+                            backgroundImage: imageUrl != null
+                                ? NetworkImage(imageUrl)
                                 : null,
-                            child: (category['image_url'] == null || !category['image_url'].toString().contains('.'))
-                                ? Text(category['image_url'] ?? '📁') 
+                            backgroundColor: const Color(0xFFFFECE8),
+                            child: imageUrl == null
+                                ? Text(imageVal ?? '📁',
+                                    style: const TextStyle(fontSize: 20))
                                 : null,
                           ),
                         ),
-                        DataCell(Text(category['name'] ?? '')),
-                        DataCell(Text(category['sort_order']?.toString() ?? '0')),
-                        DataCell(
-                          Icon(isActive ? Icons.check_circle : Icons.cancel, color: isActive ? Colors.green : Colors.red),
-                        ),
+
+                        // ── Name ───────────────────────────────────────────
+                        DataCell(Text(
+                          category['name'] ?? '',
+                          style: const TextStyle(fontWeight: FontWeight.w600),
+                        )),
+
+                        // ── Sort Order ─────────────────────────────────────
+                        DataCell(Text(
+                            category['sort_order']?.toString() ?? '0')),
+
+                        // ── Status ─────────────────────────────────────────
                         DataCell(
                           Row(
                             children: [
-                              IconButton(
-                                icon: const Icon(Icons.edit, color: Colors.orange),
-                                tooltip: 'تعديل',
-                                onPressed: () => _showAddEditCategoryDialog(context, ref, category),
+                              Icon(
+                                isActive
+                                    ? Icons.check_circle
+                                    : Icons.cancel,
+                                color:
+                                    isActive ? Colors.green : Colors.red,
+                                size: 20,
                               ),
-                              IconButton(
-                                icon: const Icon(Icons.delete, color: Colors.red),
-                                tooltip: 'حذف',
-                                onPressed: () async {
-                                  final confirm = await showDialog<bool>(
-                                    context: context,
-                                    builder: (context) => AlertDialog(
-                                      title: const Text('تأكيد الحذف'),
-                                      content: const Text('هل أنت متأكد من حذف هذا القسم؟'),
-                                      actions: [
-                                        TextButton(onPressed: () => Navigator.pop(context, false), child: const Text('إلغاء')),
-                                        TextButton(onPressed: () => Navigator.pop(context, true), child: const Text('حذف', style: TextStyle(color: Colors.red))),
-                                      ],
-                                    ),
-                                  );
-                                  if (confirm == true) {
-                                    await ref.read(categoryRepositoryProvider).deleteCategory(category['id']);
-                                    ref.invalidate(categoriesProvider);
-                                  }
-                                },
+                              const SizedBox(width: 4),
+                              Text(
+                                isActive ? 'نشط' : 'معطل',
+                                style: TextStyle(
+                                    color: isActive
+                                        ? Colors.green
+                                        : Colors.red,
+                                    fontSize: 12),
+                              ),
+                            ],
+                          ),
+                        ),
+
+                        // ── Actions ────────────────────────────────────────
+                        DataCell(
+                          Row(
+                            mainAxisSize: MainAxisSize.min,
+                            children: [
+                              // 1. Manage Children (Stores in this category)
+                              Tooltip(
+                                message:
+                                    'إدارة المطاعم في هذا القسم',
+                                child: IconButton(
+                                  icon: const Icon(
+                                    Icons.account_tree_outlined,
+                                    color: Color(0xFF1565C0),
+                                  ),
+                                  onPressed: () {
+                                    Navigator.push(
+                                      context,
+                                      MaterialPageRoute(
+                                        builder: (_) =>
+                                            CategoryChildrenScreen(
+                                          appCategory: category,
+                                        ),
+                                      ),
+                                    );
+                                  },
+                                ),
+                              ),
+
+                              // 2. Edit
+                              Tooltip(
+                                message: 'تعديل القسم',
+                                child: IconButton(
+                                  icon: const Icon(Icons.edit,
+                                      color: Colors.orange),
+                                  onPressed: () =>
+                                      _showAddEditCategoryDialog(
+                                          context, ref, category),
+                                ),
+                              ),
+
+                              // 3. Delete
+                              Tooltip(
+                                message: 'حذف القسم',
+                                child: IconButton(
+                                  icon: const Icon(Icons.delete,
+                                      color: Colors.red),
+                                  onPressed: () async {
+                                    final confirm =
+                                        await showDialog<bool>(
+                                      context: context,
+                                      builder: (ctx) => AlertDialog(
+                                        title: const Text('تأكيد الحذف'),
+                                        content: Text(
+                                            'هل أنت متأكد من حذف قسم "${category['name']}"؟'),
+                                        actions: [
+                                          TextButton(
+                                            onPressed: () =>
+                                                Navigator.pop(
+                                                    ctx, false),
+                                            child:
+                                                const Text('إلغاء'),
+                                          ),
+                                          TextButton(
+                                            onPressed: () =>
+                                                Navigator.pop(
+                                                    ctx, true),
+                                            child: const Text(
+                                              'حذف',
+                                              style: TextStyle(
+                                                  color: Colors.red),
+                                            ),
+                                          ),
+                                        ],
+                                      ),
+                                    );
+                                    if (confirm == true) {
+                                      await ref
+                                          .read(
+                                              categoryRepositoryProvider)
+                                          .deleteCategory(
+                                              category['id']);
+                                      ref.invalidate(
+                                          categoriesProvider);
+                                    }
+                                  },
+                                ),
                               ),
                             ],
                           ),
@@ -108,20 +210,27 @@ class CategoriesScreen extends ConsumerWidget {
             ),
           );
         },
-        loading: () => const Center(child: CircularProgressIndicator()),
-        error: (err, stack) => Center(child: Text('Error: $err')),
+        loading: () =>
+            const Center(child: CircularProgressIndicator()),
+        error: (err, stack) =>
+            Center(child: Text('Error: $err')),
       ),
     );
   }
 
-  void _showAddEditCategoryDialog(BuildContext context, WidgetRef ref, Map<String, dynamic>? category) {
+  void _showAddEditCategoryDialog(
+      BuildContext context, WidgetRef ref, Map<String, dynamic>? category) {
     showDialog(
       context: context,
-      builder: (context) => _AddEditCategoryDialog(category: category, ref: ref),
+      builder: (context) =>
+          _AddEditCategoryDialog(category: category, ref: ref),
     );
   }
 }
 
+// ─────────────────────────────────────────────────────────────────────────────
+// Add / Edit Category Dialog (unchanged logic, unchanged schema)
+// ─────────────────────────────────────────────────────────────────────────────
 class _AddEditCategoryDialog extends StatefulWidget {
   final Map<String, dynamic>? category;
   final WidgetRef ref;
@@ -129,10 +238,12 @@ class _AddEditCategoryDialog extends StatefulWidget {
   const _AddEditCategoryDialog({this.category, required this.ref});
 
   @override
-  State<_AddEditCategoryDialog> createState() => _AddEditCategoryDialogState();
+  State<_AddEditCategoryDialog> createState() =>
+      _AddEditCategoryDialogState();
 }
 
-class _AddEditCategoryDialogState extends State<_AddEditCategoryDialog> {
+class _AddEditCategoryDialogState
+    extends State<_AddEditCategoryDialog> {
   final _formKey = GlobalKey<FormState>();
   late TextEditingController _nameController;
   late TextEditingController _imageUrlController;
@@ -145,16 +256,29 @@ class _AddEditCategoryDialogState extends State<_AddEditCategoryDialog> {
   @override
   void initState() {
     super.initState();
-    _nameController = TextEditingController(text: widget.category?['name'] ?? '');
-    _imageUrlController = TextEditingController(text: widget.category?['image_url'] ?? '');
-    _sortController = TextEditingController(text: widget.category?['sort_order']?.toString() ?? '0');
+    _nameController =
+        TextEditingController(text: widget.category?['name'] ?? '');
+    _imageUrlController =
+        TextEditingController(text: widget.category?['image_url'] ?? '');
+    _sortController = TextEditingController(
+        text: widget.category?['sort_order']?.toString() ?? '0');
     _isActive = widget.category?['is_active'] ?? true;
+  }
+
+  @override
+  void dispose() {
+    _nameController.dispose();
+    _imageUrlController.dispose();
+    _sortController.dispose();
+    super.dispose();
   }
 
   @override
   Widget build(BuildContext context) {
     return AlertDialog(
-      title: Text(widget.category == null ? 'إضافة قسم جديد' : 'تعديل القسم'),
+      title: Text(widget.category == null
+          ? 'إضافة قسم جديد'
+          : 'تعديل القسم'),
       content: SizedBox(
         width: 400,
         child: SingleChildScrollView(
@@ -165,8 +289,11 @@ class _AddEditCategoryDialogState extends State<_AddEditCategoryDialog> {
               children: [
                 TextFormField(
                   controller: _nameController,
-                  decoration: const InputDecoration(labelText: 'اسم القسم', border: OutlineInputBorder()),
-                  validator: (val) => val == null || val.isEmpty ? 'مطلوب' : null,
+                  decoration: const InputDecoration(
+                      labelText: 'اسم القسم',
+                      border: OutlineInputBorder()),
+                  validator: (val) =>
+                      val == null || val.isEmpty ? 'مطلوب' : null,
                 ),
                 const SizedBox(height: 16),
                 Row(
@@ -174,14 +301,25 @@ class _AddEditCategoryDialogState extends State<_AddEditCategoryDialog> {
                     Expanded(
                       child: TextFormField(
                         controller: _imageUrlController,
-                        decoration: const InputDecoration(labelText: 'الرمز التعبيري أو الرابط (Image URL/Emoji)', border: OutlineInputBorder()),
-                        validator: (val) => val == null || val.isEmpty ? 'مطلوب' : null,
+                        decoration: const InputDecoration(
+                            labelText:
+                                'الرمز التعبيري أو الرابط (Image URL/Emoji)',
+                            border: OutlineInputBorder()),
+                        validator: (val) =>
+                            val == null || val.isEmpty ? 'مطلوب' : null,
                       ),
                     ),
                     const SizedBox(width: 8),
                     ElevatedButton.icon(
-                      onPressed: _isUploading ? null : _pickAndUploadImage,
-                      icon: _isUploading ? const SizedBox(width: 16, height: 16, child: CircularProgressIndicator(strokeWidth: 2)) : const Icon(Icons.upload_file),
+                      onPressed:
+                          _isUploading ? null : _pickAndUploadImage,
+                      icon: _isUploading
+                          ? const SizedBox(
+                              width: 16,
+                              height: 16,
+                              child: CircularProgressIndicator(
+                                  strokeWidth: 2))
+                          : const Icon(Icons.upload_file),
                       label: const Text('رفع صورة'),
                     ),
                   ],
@@ -189,7 +327,9 @@ class _AddEditCategoryDialogState extends State<_AddEditCategoryDialog> {
                 const SizedBox(height: 16),
                 TextFormField(
                   controller: _sortController,
-                  decoration: const InputDecoration(labelText: 'الترتيب (Sort Order)', border: OutlineInputBorder()),
+                  decoration: const InputDecoration(
+                      labelText: 'الترتيب (Sort Order)',
+                      border: OutlineInputBorder()),
                   keyboardType: TextInputType.number,
                 ),
                 const SizedBox(height: 16),
@@ -204,10 +344,17 @@ class _AddEditCategoryDialogState extends State<_AddEditCategoryDialog> {
         ),
       ),
       actions: [
-        TextButton(onPressed: () => Navigator.pop(context), child: const Text('إلغاء')),
+        TextButton(
+            onPressed: () => Navigator.pop(context),
+            child: const Text('إلغاء')),
         ElevatedButton(
           onPressed: _isLoading ? null : _save,
-          child: _isLoading ? const SizedBox(width: 16, height: 16, child: CircularProgressIndicator()) : const Text('حفظ'),
+          child: _isLoading
+              ? const SizedBox(
+                  width: 16,
+                  height: 16,
+                  child: CircularProgressIndicator())
+              : const Text('حفظ'),
         ),
       ],
     );
@@ -226,15 +373,22 @@ class _AddEditCategoryDialogState extends State<_AddEditCategoryDialog> {
         };
 
         if (widget.category == null) {
-          await widget.ref.read(categoryRepositoryProvider).createCategory(data);
+          await widget.ref
+              .read(categoryRepositoryProvider)
+              .createCategory(data);
         } else {
-          await widget.ref.read(categoryRepositoryProvider).updateCategory(widget.category!['id'], data);
+          await widget.ref
+              .read(categoryRepositoryProvider)
+              .updateCategory(widget.category!['id'], data);
         }
 
         widget.ref.invalidate(categoriesProvider);
         if (mounted) Navigator.pop(context);
       } catch (e) {
-        if (mounted) ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('Error: $e')));
+        if (mounted) {
+          ScaffoldMessenger.of(context).showSnackBar(
+              SnackBar(content: Text('Error: $e')));
+        }
       } finally {
         if (mounted) setState(() => _isLoading = false);
       }
@@ -243,37 +397,42 @@ class _AddEditCategoryDialogState extends State<_AddEditCategoryDialog> {
 
   Future<void> _pickAndUploadImage() async {
     try {
-      final XFile? image = await _picker.pickImage(source: ImageSource.gallery);
+      final XFile? image =
+          await _picker.pickImage(source: ImageSource.gallery);
 
       if (image != null) {
         setState(() => _isUploading = true);
-        
+
         final fileBytes = await image.readAsBytes();
         final fileName = image.name;
-        final uniqueName = '${DateTime.now().millisecondsSinceEpoch}_$fileName';
+        final uniqueName =
+            '${DateTime.now().millisecondsSinceEpoch}_$fileName';
 
-        await Supabase.instance.client.storage.from('store_images').uploadBinary(
-          uniqueName,
-          fileBytes,
-          fileOptions: const FileOptions(upsert: true),
-        );
+        await Supabase.instance.client.storage
+            .from('store_images')
+            .uploadBinary(
+              uniqueName,
+              fileBytes,
+              fileOptions: const FileOptions(upsert: true),
+            );
 
-        // Public URL not stored — only the relative path is saved per architecture rules.
-        Supabase.instance.client.storage.from('store_images').getPublicUrl(uniqueName);
-        
         setState(() {
-          _imageUrlController.text = uniqueName; // ONLY save relative unique name
+          _imageUrlController.text = uniqueName;
           _isUploading = false;
         });
 
         if (mounted) {
-          ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('تم رفع الصورة بنجاح!'), backgroundColor: Colors.green));
+          ScaffoldMessenger.of(context).showSnackBar(const SnackBar(
+              content: Text('تم رفع الصورة بنجاح!'),
+              backgroundColor: Colors.green));
         }
       }
     } catch (e) {
       setState(() => _isUploading = false);
       if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('فشل رفع الصورة: $e'), backgroundColor: Colors.red));
+        ScaffoldMessenger.of(context).showSnackBar(SnackBar(
+            content: Text('فشل رفع الصورة: $e'),
+            backgroundColor: Colors.red));
       }
     }
   }
