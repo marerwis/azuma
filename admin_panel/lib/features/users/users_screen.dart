@@ -39,10 +39,7 @@ class _UsersScreenState extends ConsumerState<UsersScreen> with SingleTickerProv
             icon: const Icon(Icons.person_add),
             tooltip: 'إضافة مستخدم جديد',
             onPressed: () {
-              // Open add user dialog (currently a placeholder for Auth system)
-              ScaffoldMessenger.of(context).showSnackBar(
-                const SnackBar(content: Text('لإضافة مستخدم بكلمة مرور، يرجى التسجيل عبر التطبيق أو إضافة المستخدم من لوحة Supabase Auth ثم ربطه هنا.')),
-              );
+              _showManageUserDialog(context, ref, null);
             },
           ),
           IconButton(
@@ -57,10 +54,10 @@ class _UsersScreenState extends ConsumerState<UsersScreen> with SingleTickerProv
           unselectedLabelColor: Colors.grey,
           indicatorColor: const Color(0xFFFF5722),
           tabs: const [
-            Tab(text: 'المديرين (Admins)'),
-            Tab(text: 'المطاعم (Vendors)'),
-            Tab(text: 'المندوبين (Drivers)'),
             Tab(text: 'العملاء (Customers)'),
+            Tab(text: 'المتاجر (Vendors)'),
+            Tab(text: 'المندوبين (Drivers)'),
+            Tab(text: 'المديرين (Admins)'),
           ],
         ),
       ),
@@ -112,10 +109,10 @@ class _UsersScreenState extends ConsumerState<UsersScreen> with SingleTickerProv
                 return TabBarView(
                   controller: _tabController,
                   children: [
-                    _buildUserTable(admins),
+                    _buildUserTable(customers),
                     _buildUserTable(vendors),
                     _buildUserTable(drivers),
-                    _buildUserTable(customers),
+                    _buildUserTable(admins),
                   ],
                 );
               },
@@ -217,7 +214,7 @@ class _UsersScreenState extends ConsumerState<UsersScreen> with SingleTickerProv
     );
   }
 
-  void _showManageUserDialog(BuildContext context, WidgetRef ref, Map<String, dynamic> user) {
+  void _showManageUserDialog(BuildContext context, WidgetRef ref, Map<String, dynamic>? user) {
     showDialog(
       context: context,
       builder: (context) => _ManageUserDialog(
@@ -229,11 +226,11 @@ class _UsersScreenState extends ConsumerState<UsersScreen> with SingleTickerProv
 }
 
 class _ManageUserDialog extends StatefulWidget {
-  final Map<String, dynamic> user;
+  final Map<String, dynamic>? user;
   final WidgetRef ref;
 
   const _ManageUserDialog({
-    required this.user,
+    this.user,
     required this.ref,
   });
 
@@ -247,19 +244,23 @@ class _ManageUserDialogState extends State<_ManageUserDialog> {
   late TextEditingController _nameController;
   late TextEditingController _phoneController;
   late TextEditingController _emailController;
+  late TextEditingController _passwordController;
   late String _selectedRole;
   
   bool _isLoading = false;
+  late bool _isNewUser;
 
   final List<String> _roles = ['customer', 'driver', 'vendor', 'admin'];
 
   @override
   void initState() {
     super.initState();
-    _nameController = TextEditingController(text: widget.user['full_name'] ?? '');
-    _phoneController = TextEditingController(text: widget.user['phone'] ?? '');
-    _emailController = TextEditingController(text: widget.user['email'] ?? '');
-    _selectedRole = widget.user['role'] ?? 'customer';
+    _isNewUser = widget.user == null;
+    _nameController = TextEditingController(text: widget.user?['full_name'] ?? '');
+    _phoneController = TextEditingController(text: widget.user?['phone'] ?? '');
+    _emailController = TextEditingController(text: widget.user?['email'] ?? '');
+    _passwordController = TextEditingController();
+    _selectedRole = widget.user?['role'] ?? 'customer';
   }
 
   @override
@@ -267,6 +268,7 @@ class _ManageUserDialogState extends State<_ManageUserDialog> {
     _nameController.dispose();
     _phoneController.dispose();
     _emailController.dispose();
+    _passwordController.dispose();
     super.dispose();
   }
 
@@ -283,59 +285,74 @@ class _ManageUserDialogState extends State<_ManageUserDialog> {
   @override
   Widget build(BuildContext context) {
     return AlertDialog(
-      title: const Text('تعديل بيانات المستخدم'),
+      title: Text(_isNewUser ? 'إضافة مستخدم جديد' : 'تعديل بيانات المستخدم'),
       content: SizedBox(
         width: 400,
-        child: Form(
-          key: _formKey,
-          child: Column(
-            mainAxisSize: MainAxisSize.min,
-            children: [
-              TextFormField(
-                controller: _nameController,
-                decoration: const InputDecoration(
-                  labelText: 'الاسم الكامل',
-                  border: OutlineInputBorder(),
+        child: SingleChildScrollView(
+          child: Form(
+            key: _formKey,
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                TextFormField(
+                  controller: _nameController,
+                  decoration: const InputDecoration(
+                    labelText: 'الاسم الكامل',
+                    border: OutlineInputBorder(),
+                  ),
+                  validator: (val) => (val == null || val.isEmpty) ? 'الاسم مطلوب' : null,
                 ),
-                validator: (val) => (val == null || val.isEmpty) ? 'الاسم مطلوب' : null,
-              ),
-              const SizedBox(height: 16),
-              TextFormField(
-                controller: _phoneController,
-                decoration: const InputDecoration(
-                  labelText: 'رقم الهاتف',
-                  border: OutlineInputBorder(),
+                const SizedBox(height: 16),
+                TextFormField(
+                  controller: _phoneController,
+                  decoration: const InputDecoration(
+                    labelText: 'رقم الهاتف',
+                    border: OutlineInputBorder(),
+                  ),
                 ),
-              ),
-              const SizedBox(height: 16),
-              TextFormField(
-                controller: _emailController,
-                readOnly: true, // Tied to Auth.users, should be read only in public.users
-                decoration: InputDecoration(
-                  labelText: 'البريد الإلكتروني',
-                  border: const OutlineInputBorder(),
-                  fillColor: Colors.grey[200],
-                  filled: true,
+                const SizedBox(height: 16),
+                TextFormField(
+                  controller: _emailController,
+                  readOnly: !_isNewUser, // Tied to Auth.users, can only set on create
+                  decoration: InputDecoration(
+                    labelText: 'البريد الإلكتروني',
+                    border: const OutlineInputBorder(),
+                    fillColor: _isNewUser ? Colors.white : Colors.grey[200],
+                    filled: !_isNewUser,
+                  ),
+                  validator: (val) => (val == null || val.isEmpty) ? 'البريد مطلوب' : null,
                 ),
-              ),
-              const SizedBox(height: 16),
-              DropdownButtonFormField<String>(
-                value: _roles.contains(_selectedRole) ? _selectedRole : 'customer',
-                decoration: const InputDecoration(
-                  labelText: 'الدور (Role)',
-                  border: OutlineInputBorder()
+                if (_isNewUser) ...[
+                  const SizedBox(height: 16),
+                  TextFormField(
+                    controller: _passwordController,
+                    obscureText: true,
+                    decoration: const InputDecoration(
+                      labelText: 'كلمة المرور',
+                      border: OutlineInputBorder(),
+                    ),
+                    validator: (val) => (val == null || val.length < 6) ? 'كلمة المرور يجب أن تكون 6 أحرف على الأقل' : null,
+                  ),
+                ],
+                const SizedBox(height: 16),
+                DropdownButtonFormField<String>(
+                  value: _roles.contains(_selectedRole) ? _selectedRole : 'customer',
+                  decoration: const InputDecoration(
+                    labelText: 'الدور (Role)',
+                    border: OutlineInputBorder()
+                  ),
+                  items: _roles.map((role) {
+                    return DropdownMenuItem(
+                      value: role,
+                      child: Text(_getReadableRole(role)),
+                    );
+                  }).toList(),
+                  onChanged: (val) {
+                    if (val != null) setState(() => _selectedRole = val);
+                  },
                 ),
-                items: _roles.map((role) {
-                  return DropdownMenuItem(
-                    value: role,
-                    child: Text(_getReadableRole(role)),
-                  );
-                }).toList(),
-                onChanged: (val) {
-                  if (val != null) setState(() => _selectedRole = val);
-                },
-              ),
-            ],
+              ],
+            ),
           ),
         ),
       ),
@@ -343,7 +360,7 @@ class _ManageUserDialogState extends State<_ManageUserDialog> {
         TextButton(onPressed: () => Navigator.pop(context), child: const Text('إلغاء')),
         ElevatedButton(
           onPressed: _isLoading ? null : _save,
-          child: _isLoading ? const SizedBox(width: 16, height: 16, child: CircularProgressIndicator()) : const Text('حفظ التعديلات'),
+          child: _isLoading ? const SizedBox(width: 16, height: 16, child: CircularProgressIndicator()) : const Text('حفظ'),
         ),
       ],
     );
@@ -354,18 +371,28 @@ class _ManageUserDialogState extends State<_ManageUserDialog> {
     
     setState(() => _isLoading = true);
     try {
-      final updatedData = {
-        'full_name': _nameController.text.trim(),
-        'phone': _phoneController.text.trim(),
-        'role': _selectedRole,
-      };
+      if (_isNewUser) {
+        await widget.ref.read(userRepositoryProvider).createUser(
+          email: _emailController.text.trim(),
+          password: _passwordController.text,
+          fullName: _nameController.text.trim(),
+          phone: _phoneController.text.trim(),
+          role: _selectedRole,
+        );
+      } else {
+        final updatedData = {
+          'full_name': _nameController.text.trim(),
+          'phone': _phoneController.text.trim(),
+          'role': _selectedRole,
+        };
+        await widget.ref.read(userRepositoryProvider).updateUserData(widget.user!['id'], updatedData);
+      }
       
-      await widget.ref.read(userRepositoryProvider).updateUserData(widget.user['id'], updatedData);
       widget.ref.invalidate(usersProvider);
       if (mounted) {
         Navigator.pop(context);
         ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(content: Text('تم تحديث بيانات المستخدم بنجاح!'), backgroundColor: Colors.green),
+          SnackBar(content: Text(_isNewUser ? 'تم إنشاء المستخدم بنجاح!' : 'تم تحديث البيانات بنجاح!'), backgroundColor: Colors.green),
         );
       }
     } catch (e) {
@@ -379,3 +406,4 @@ class _ManageUserDialogState extends State<_ManageUserDialog> {
     }
   }
 }
+
