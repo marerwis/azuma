@@ -21,20 +21,6 @@ class StoreMenuScreen extends ConsumerWidget {
           onPressed: () => Navigator.pop(context),
         ),
         actions: [
-          // ── Add Menu Category button ───────────────────────────────────
-          Padding(
-            padding: const EdgeInsets.only(right: 8.0, top: 10, bottom: 10),
-            child: ElevatedButton.icon(
-              onPressed: () => _showAddMenuCategoryDialog(context, ref, store['id']),
-              icon: const Icon(Icons.category, size: 18),
-              label: Text(MediaQuery.of(context).size.width > 600 ? 'إضافة قسم' : 'قسم'),
-              style: ElevatedButton.styleFrom(
-                backgroundColor: Colors.blue,
-                foregroundColor: Colors.white,
-                padding: const EdgeInsets.symmetric(horizontal: 12),
-              ),
-            ),
-          ),
           // ── Add Product button ─────────────────────────────────────────
           Padding(
             padding: const EdgeInsets.only(right: 8.0, left: 16.0, top: 10, bottom: 10),
@@ -473,7 +459,7 @@ class _AddEditProductDialogState extends State<_AddEditProductDialog> {
                             const SizedBox(width: 8),
                             const Expanded(
                               child: Text(
-                                'لا توجد أقسام لهذا المطعم. أضف قسماً أولاً من زر "إضافة قسم".',
+                                'لا توجد أقسام منيو لهذا المطعم. يرجى إضافة قسم أولاً.',
                                 style: TextStyle(fontSize: 12),
                               ),
                             ),

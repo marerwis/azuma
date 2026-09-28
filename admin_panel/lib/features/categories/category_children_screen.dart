@@ -262,7 +262,7 @@ class _StoreCard extends StatelessWidget {
   Widget build(BuildContext context) {
     final isOpen = store['is_open'] == true;
     final isActive = store['is_active'] == true;
-    final logoUrl = store['logo_url'] as String?;
+    final logoUrl = store['image_url'] as String?;
     final hasLogo = logoUrl != null && logoUrl.isNotEmpty;
 
     final logoImageUrl = hasLogo
@@ -491,7 +491,7 @@ class _AddEditStoreDialogState extends State<_AddEditStoreDialog> {
     _nameController = TextEditingController(text: s?['name'] ?? '');
     _descController = TextEditingController(text: s?['description'] ?? '');
     _addressController = TextEditingController(text: s?['address'] ?? '');
-    _logoController = TextEditingController(text: s?['logo_url'] ?? '');
+    _logoController = TextEditingController(text: s?['image_url'] ?? '');
     _commissionController =
         TextEditingController(text: s?['commission_rate']?.toString() ?? '10');
     _latController =
@@ -681,7 +681,7 @@ class _AddEditStoreDialogState extends State<_AddEditStoreDialog> {
         'name': _nameController.text.trim(),
         'description': _descController.text.trim(),
         'address': _addressController.text.trim(),
-        'logo_url': _logoController.text.trim().isEmpty
+        'image_url': _logoController.text.trim().isEmpty
             ? null
             : _logoController.text.trim(),
         'latitude': double.tryParse(_latController.text) ?? 32.1167,
