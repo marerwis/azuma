@@ -23,27 +23,29 @@ class StoreMenuScreen extends ConsumerWidget {
         actions: [
           // ── Add Menu Category button ───────────────────────────────────
           Padding(
-            padding: const EdgeInsets.only(right: 8.0),
-            child: OutlinedButton.icon(
+            padding: const EdgeInsets.only(right: 8.0, top: 10, bottom: 10),
+            child: ElevatedButton.icon(
               onPressed: () => _showAddMenuCategoryDialog(context, ref, store['id']),
-              icon: const Icon(Icons.label_outline, size: 18),
-              label: const Text('إضافة قسم'),
-              style: OutlinedButton.styleFrom(
+              icon: const Icon(Icons.category, size: 18),
+              label: Text(MediaQuery.of(context).size.width > 600 ? 'إضافة قسم' : 'قسم'),
+              style: ElevatedButton.styleFrom(
+                backgroundColor: Colors.blue,
                 foregroundColor: Colors.white,
-                side: const BorderSide(color: Colors.white54),
+                padding: const EdgeInsets.symmetric(horizontal: 12),
               ),
             ),
           ),
           // ── Add Product button ─────────────────────────────────────────
           Padding(
-            padding: const EdgeInsets.only(right: 16.0),
+            padding: const EdgeInsets.only(right: 8.0, left: 16.0, top: 10, bottom: 10),
             child: ElevatedButton.icon(
               onPressed: () => _showAddEditProductDialog(context, ref, store['id'], null),
-              icon: const Icon(Icons.add),
-              label: const Text('إضافة منتج'),
+              icon: const Icon(Icons.add, size: 18),
+              label: Text(MediaQuery.of(context).size.width > 600 ? 'إضافة منتج' : 'منتج'),
               style: ElevatedButton.styleFrom(
                 backgroundColor: const Color(0xFFFF5722),
                 foregroundColor: Colors.white,
+                padding: const EdgeInsets.symmetric(horizontal: 12),
               ),
             ),
           ),
