@@ -48,4 +48,10 @@ class ProductRepository {
   Future<void> deleteProduct(String id) async {
     await _client.from('products').delete().eq('id', id);
   }
+
+  /// Deletes a menu category by ID.
+  /// Will throw if the category still has linked products (FK RESTRICT).
+  Future<void> deleteMenuCategory(String id) async {
+    await _client.from('menu_categories').delete().eq('id', id);
+  }
 }

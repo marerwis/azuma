@@ -27,7 +27,7 @@ class StoreMenuScreen extends ConsumerWidget {
             child: ElevatedButton.icon(
               onPressed: () => _showAddMenuCategoryDialog(context, ref, store['id']),
               icon: const Icon(Icons.category, size: 18),
-              label: Text(MediaQuery.of(context).size.width > 600 ? 'إضافة قسم' : 'قسم'),
+              label: Text(MediaQuery.of(context).size.width > 600 ? 'إدارة الأقسام' : 'أقسام'),
               style: ElevatedButton.styleFrom(
                 backgroundColor: Colors.blue,
                 foregroundColor: Colors.white,
@@ -175,65 +175,103 @@ class StoreMenuScreen extends ConsumerWidget {
     );
   }
 
-  /// Opens a dialog to create a new [menu_categories] row scoped to this store.
+  /// Opens the full management dialog for menu categories scoped to this store.
   void _showAddMenuCategoryDialog(
     BuildContext context,
     WidgetRef ref,
     String storeId,
   ) {
-    final nameController = TextEditingController();
-
     showDialog(
       context: context,
-      builder: (ctx) => _AddMenuCategoryDialog(
+      builder: (ctx) => _ManageMenuCategoriesDialog(
         storeId: storeId,
-        nameController: nameController,
         ref: ref,
-        parentContext: context,
       ),
     );
   }
 }
 
 // ─────────────────────────────────────────────────────────────────────────────
-// Add Menu Category Dialog  (store-scoped → menu_categories table)
+// Manage Menu Categories Dialog  (store-scoped → menu_categories table)
+// Full CRUD: Add new categories + view/delete existing ones
 // ─────────────────────────────────────────────────────────────────────────────
 
-class _AddMenuCategoryDialog extends StatefulWidget {
+class _ManageMenuCategoriesDialog extends StatefulWidget {
   final String storeId;
-  final TextEditingController nameController;
   final WidgetRef ref;
-  final BuildContext parentContext;
 
-  const _AddMenuCategoryDialog({
+  const _ManageMenuCategoriesDialog({
     required this.storeId,
-    required this.nameController,
     required this.ref,
-    required this.parentContext,
   });
 
   @override
-  State<_AddMenuCategoryDialog> createState() => _AddMenuCategoryDialogState();
+  State<_ManageMenuCategoriesDialog> createState() =>
+      _ManageMenuCategoriesDialogState();
 }
 
-class _AddMenuCategoryDialogState extends State<_AddMenuCategoryDialog> {
-  bool _isSaving = false;
+class _ManageMenuCategoriesDialogState
+    extends State<_ManageMenuCategoriesDialog> {
+  final TextEditingController _nameController = TextEditingController();
+  bool _isAdding = false;
+  bool _isDeleting = false;
 
-  Future<void> _save() async {
-    final name = widget.nameController.text.trim();
+  List<Map<String, dynamic>> _categories = [];
+  bool _isLoadingList = true;
+  String? _loadError;
+
+  @override
+  void initState() {
+    super.initState();
+    _loadCategories();
+  }
+
+  @override
+  void dispose() {
+    _nameController.dispose();
+    super.dispose();
+  }
+
+  Future<void> _loadCategories() async {
+    setState(() {
+      _isLoadingList = true;
+      _loadError = null;
+    });
+    try {
+      final cats = await widget.ref
+          .read(productRepositoryProvider)
+          .getMenuCategoriesByStore(widget.storeId);
+      if (mounted) {
+        setState(() {
+          _categories = cats;
+          _isLoadingList = false;
+        });
+      }
+    } catch (e) {
+      if (mounted) {
+        setState(() {
+          _loadError = e.toString();
+          _isLoadingList = false;
+        });
+      }
+    }
+  }
+
+  Future<void> _addCategory() async {
+    final name = _nameController.text.trim();
     if (name.isEmpty) return;
-    // Capture messenger BEFORE any await to satisfy use_build_context_synchronously.
-    final messenger = ScaffoldMessenger.of(widget.parentContext);
-    setState(() => _isSaving = true);
+
+    setState(() => _isAdding = true);
     try {
       await widget.ref
           .read(productRepositoryProvider)
           .createMenuCategory(widget.storeId, name);
-      // Invalidate the scoped provider — the "Add Product" dropdown updates immediately.
+      _nameController.clear();
+      // Refresh both the local list AND the external provider
       widget.ref.invalidate(storeMenuCategoriesProvider(widget.storeId));
+      await _loadCategories();
       if (mounted) {
-        Navigator.pop(context);
-        messenger.showSnackBar(
+        ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(
             content: Text('تم إضافة القسم "$name" بنجاح!'),
             backgroundColor: Colors.green,
@@ -241,76 +279,236 @@ class _AddMenuCategoryDialogState extends State<_AddMenuCategoryDialog> {
         );
       }
     } catch (e) {
-      setState(() => _isSaving = false);
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text('فشل: $e'), backgroundColor: Colors.red),
+          SnackBar(content: Text('فشل الإضافة: $e'), backgroundColor: Colors.red),
         );
       }
+    } finally {
+      if (mounted) setState(() => _isAdding = false);
+    }
+  }
+
+  Future<void> _deleteCategory(Map<String, dynamic> category) async {
+    final confirm = await showDialog<bool>(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        title: const Text('تأكيد الحذف'),
+        content: Text('هل أنت متأكد من حذف قسم "${category['name']}"؟'),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(ctx, false),
+            child: const Text('إلغاء'),
+          ),
+          TextButton(
+            onPressed: () => Navigator.pop(ctx, true),
+            child: const Text('حذف', style: TextStyle(color: Colors.red)),
+          ),
+        ],
+      ),
+    );
+
+    if (confirm != true || !mounted) return;
+
+    setState(() => _isDeleting = true);
+    try {
+      await widget.ref
+          .read(productRepositoryProvider)
+          .deleteMenuCategory(category['id']);
+      widget.ref.invalidate(storeMenuCategoriesProvider(widget.storeId));
+      await _loadCategories();
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(
+            content: Text('تم حذف القسم بنجاح!'),
+            backgroundColor: Colors.green,
+          ),
+        );
+      }
+    } catch (e) {
+      if (mounted) {
+        final errorMsg = e.toString().toLowerCase();
+        final isFkError = errorMsg.contains('violates foreign key') ||
+            errorMsg.contains('foreign key constraint') ||
+            errorMsg.contains('referenced from') ||
+            errorMsg.contains('23503');
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text(
+              isFkError
+                  ? 'لا يمكن حذف قسم يحتوي على منتجات. احذف المنتجات أولاً.'
+                  : 'فشل الحذف: $e',
+            ),
+            backgroundColor: isFkError ? Colors.orange : Colors.red,
+            duration: const Duration(seconds: 4),
+          ),
+        );
+      }
+    } finally {
+      if (mounted) setState(() => _isDeleting = false);
     }
   }
 
   @override
   Widget build(BuildContext context) {
     return AlertDialog(
-      title: const Text('إضافة قسم منيو جديد'),
-      content: Column(
-        mainAxisSize: MainAxisSize.min,
-        crossAxisAlignment: CrossAxisAlignment.start,
+      title: Row(
         children: [
-          // Info banner — makes it clear this is store-scoped
-          Container(
-            padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 8),
-            decoration: BoxDecoration(
-              color: Colors.orange.shade50,
-              border: Border.all(color: Colors.orange.shade200),
-              borderRadius: BorderRadius.circular(8),
-            ),
-            child: Row(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Icon(Icons.info_outline, size: 16, color: Colors.orange.shade700),
-                const SizedBox(width: 6),
-                Expanded(
-                  child: Text(
-                    'هذا القسم خاص بهذا المطعم فقط.\nيُحفظ في جدول menu_categories.',
-                    style: TextStyle(fontSize: 12, color: Colors.orange.shade800),
-                  ),
-                ),
-              ],
-            ),
-          ),
-          const SizedBox(height: 16),
-          TextField(
-            controller: widget.nameController,
-            autofocus: true,
-            decoration: const InputDecoration(
-              labelText: 'اسم القسم (مثال: المشويات، المشروبات)',
-              border: OutlineInputBorder(),
-              prefixIcon: Icon(Icons.label_outline),
-            ),
-            onSubmitted: (_) => _save(),
+          const Icon(Icons.category, color: Colors.blue),
+          const SizedBox(width: 8),
+          const Expanded(child: Text('إدارة أقسام المنيو')),
+          IconButton(
+            icon: const Icon(Icons.refresh, size: 20),
+            onPressed: _loadCategories,
+            tooltip: 'تحديث',
           ),
         ],
       ),
+      content: SizedBox(
+        width: 450,
+        height: 420,
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            // ── Info Banner ──────────────────────────────────────────────
+            Container(
+              padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 8),
+              decoration: BoxDecoration(
+                color: Colors.blue.shade50,
+                border: Border.all(color: Colors.blue.shade200),
+                borderRadius: BorderRadius.circular(8),
+              ),
+              child: Row(
+                children: [
+                  Icon(Icons.info_outline, size: 16, color: Colors.blue.shade700),
+                  const SizedBox(width: 6),
+                  Expanded(
+                    child: Text(
+                      'هذه الأقسام خاصة بهذا المطعم فقط (جدول menu_categories).',
+                      style: TextStyle(fontSize: 12, color: Colors.blue.shade800),
+                    ),
+                  ),
+                ],
+              ),
+            ),
+            const SizedBox(height: 16),
+
+            // ── Add New Category Row ─────────────────────────────────────
+            Row(
+              children: [
+                Expanded(
+                  child: TextField(
+                    controller: _nameController,
+                    autofocus: true,
+                    decoration: const InputDecoration(
+                      labelText: 'اسم القسم الجديد',
+                      hintText: 'مثال: المشويات، المشروبات...',
+                      border: OutlineInputBorder(),
+                      prefixIcon: Icon(Icons.label_outline),
+                      isDense: true,
+                    ),
+                    onSubmitted: (_) => _addCategory(),
+                  ),
+                ),
+                const SizedBox(width: 8),
+                ElevatedButton(
+                  onPressed: _isAdding ? null : _addCategory,
+                  style: ElevatedButton.styleFrom(
+                    backgroundColor: Colors.green,
+                    foregroundColor: Colors.white,
+                    padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
+                  ),
+                  child: _isAdding
+                      ? const SizedBox(
+                          width: 16,
+                          height: 16,
+                          child: CircularProgressIndicator(
+                              strokeWidth: 2, color: Colors.white),
+                        )
+                      : const Text('إضافة'),
+                ),
+              ],
+            ),
+
+            const SizedBox(height: 16),
+            const Divider(),
+            const SizedBox(height: 8),
+
+            // ── Header for existing list ─────────────────────────────────
+            Text(
+              'الأقسام الحالية (${_isLoadingList ? '...' : _categories.length})',
+              style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 14),
+            ),
+            const SizedBox(height: 8),
+
+            // ── Categories List ──────────────────────────────────────────
+            Expanded(
+              child: _isLoadingList
+                  ? const Center(child: CircularProgressIndicator())
+                  : _loadError != null
+                      ? Center(
+                          child: Text('خطأ: $_loadError',
+                              style: const TextStyle(color: Colors.red)),
+                        )
+                      : _categories.isEmpty
+                          ? const Center(
+                              child: Text(
+                                'لا توجد أقسام بعد. أضف أول قسم أعلاه!',
+                                style: TextStyle(color: Colors.grey),
+                              ),
+                            )
+                          : ListView.separated(
+                              itemCount: _categories.length,
+                              separatorBuilder: (_, __) =>
+                                  const Divider(height: 1),
+                              itemBuilder: (context, index) {
+                                final cat = _categories[index];
+                                return ListTile(
+                                  leading: CircleAvatar(
+                                    backgroundColor: Colors.blue.shade100,
+                                    child: Text(
+                                      '${index + 1}',
+                                      style: TextStyle(
+                                          color: Colors.blue.shade800,
+                                          fontWeight: FontWeight.bold),
+                                    ),
+                                  ),
+                                  title: Text(
+                                    cat['name'] ?? '',
+                                    style: const TextStyle(
+                                        fontWeight: FontWeight.w600),
+                                  ),
+                                  subtitle: Text(
+                                    cat['is_active'] == true ? 'فعّال' : 'معطّل',
+                                    style: TextStyle(
+                                      fontSize: 11,
+                                      color: cat['is_active'] == true
+                                          ? Colors.green
+                                          : Colors.red,
+                                    ),
+                                  ),
+                                  trailing: IconButton(
+                                    icon: const Icon(Icons.delete_outline,
+                                        color: Colors.red),
+                                    tooltip: 'حذف القسم',
+                                    onPressed:
+                                        _isDeleting ? null : () => _deleteCategory(cat),
+                                  ),
+                                );
+                              },
+                            ),
+            ),
+          ],
+        ),
+      ),
       actions: [
         TextButton(
-          onPressed: () => Navigator.pop(context),
-          child: const Text('إلغاء'),
-        ),
-        ElevatedButton(
-          onPressed: _isSaving ? null : _save,
-          style: ElevatedButton.styleFrom(
-            backgroundColor: const Color(0xFFFF5722),
-            foregroundColor: Colors.white,
-          ),
-          child: _isSaving
-              ? const SizedBox(
-                  width: 16,
-                  height: 16,
-                  child: CircularProgressIndicator(strokeWidth: 2, color: Colors.white),
-                )
-              : const Text('إضافة'),
+          onPressed: () {
+            // Invalidate the provider on close so the product dropdown refreshes
+            widget.ref.invalidate(storeMenuCategoriesProvider(widget.storeId));
+            Navigator.pop(context);
+          },
+          child: const Text('إغلاق'),
         ),
       ],
     );
