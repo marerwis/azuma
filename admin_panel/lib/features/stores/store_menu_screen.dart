@@ -362,7 +362,9 @@ class _AddEditProductDialogState extends State<_AddEditProductDialog> {
     _imageUrlController =
         TextEditingController(text: widget.product?['image_url'] ?? '');
     _isActive = widget.product?['is_active'] ?? true;
-    _selectedCategoryId = widget.product?['category_id'];
+    // Read from the correct FK column; fall back to category_id for legacy rows
+    _selectedCategoryId = widget.product?['menu_category_id'] ??
+        widget.product?['category_id'];
   }
 
   @override
@@ -537,7 +539,8 @@ class _AddEditProductDialogState extends State<_AddEditProductDialog> {
       try {
         final data = {
           'store_id': widget.storeId,
-          'category_id': _selectedCategoryId,
+          // ✅ Strict FK: references menu_categories.id (NOT app_categories)
+          'menu_category_id': _selectedCategoryId,
           'name': _nameController.text,
           'description': _descriptionController.text,
           'base_price': double.tryParse(_priceController.text) ?? 0.0,
