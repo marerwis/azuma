@@ -12,12 +12,28 @@ class ProductRepository {
     return List<Map<String, dynamic>>.from(response);
   }
 
-  Future<List<Map<String, dynamic>>> getCategories() async {
+  // REMOVED: getCategories() was fetching all rows with no filter — replaced by getMenuCategoriesByStore.
+
+  /// Fetches ONLY menu categories that belong strictly to the given [storeId]
+  /// from the normalized [menu_categories] table.
+  Future<List<Map<String, dynamic>>> getMenuCategoriesByStore(String storeId) async {
     final response = await _client
-        .from('categories')
+        .from('menu_categories')         // ← normalized table
         .select('*')
+        .eq('store_id', storeId)
         .order('sort_order', ascending: true);
     return List<Map<String, dynamic>>.from(response);
+  }
+
+  /// Creates a new menu category strictly scoped to [storeId].
+  /// [image_url] is intentionally omitted — menu_categories has no image column.
+  Future<void> createMenuCategory(String storeId, String name) async {
+    await _client.from('menu_categories').insert({
+      'store_id': storeId,
+      'name': name,
+      'is_active': true,
+      'sort_order': 0,
+    });
   }
 
   Future<void> createProduct(Map<String, dynamic> data) async {

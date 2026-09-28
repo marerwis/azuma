@@ -39,7 +39,7 @@ class CategoriesScreen extends ConsumerWidget {
               child: Card(
                 elevation: 2,
                 child: DataTable(
-                  headingRowColor: MaterialStateProperty.all(Colors.grey[200]),
+                  headingRowColor: WidgetStateProperty.all(Colors.grey[200]),
                   columns: const [
                     DataColumn(label: Text('صورة القسم')),
                     DataColumn(label: Text('اسم القسم')),
@@ -53,10 +53,12 @@ class CategoriesScreen extends ConsumerWidget {
                       cells: [
                         DataCell(
                           CircleAvatar(
-                            backgroundImage: category['image_url'] != null && category['image_url'].toString().startsWith('http')
-                                ? NetworkImage(category['image_url']) 
+                            backgroundImage: (category['image_url'] != null && category['image_url'].toString().contains('.'))
+                                ? NetworkImage(category['image_url'].toString().startsWith('http') 
+                                    ? category['image_url'] 
+                                    : 'https://arivoyaepcxaoupzvvbw.supabase.co/storage/v1/object/public/store_images/${category['image_url']}')
                                 : null,
-                            child: category['image_url'] == null || !category['image_url'].toString().startsWith('http')
+                            child: (category['image_url'] == null || !category['image_url'].toString().contains('.'))
                                 ? Text(category['image_url'] ?? '📁') 
                                 : null,
                           ),
@@ -220,7 +222,7 @@ class _AddEditCategoryDialogState extends State<_AddEditCategoryDialog> {
           'image_url': _imageUrlController.text,
           'sort_order': int.tryParse(_sortController.text) ?? 0,
           'is_active': _isActive,
-          // store_id is NULL for global categories
+          // NOTE: app_categories has no store_id column — intentionally omitted.
         };
 
         if (widget.category == null) {
@@ -256,10 +258,11 @@ class _AddEditCategoryDialogState extends State<_AddEditCategoryDialog> {
           fileOptions: const FileOptions(upsert: true),
         );
 
-        final String publicUrl = Supabase.instance.client.storage.from('store_images').getPublicUrl(uniqueName);
+        // Public URL not stored — only the relative path is saved per architecture rules.
+        Supabase.instance.client.storage.from('store_images').getPublicUrl(uniqueName);
         
         setState(() {
-          _imageUrlController.text = publicUrl;
+          _imageUrlController.text = uniqueName; // ONLY save relative unique name
           _isUploading = false;
         });
 

@@ -57,7 +57,13 @@ class BannersScreen extends ConsumerWidget {
                             height: 50,
                             decoration: BoxDecoration(
                               image: DecorationImage(
-                                image: NetworkImage(banner['image_url'] ?? ''),
+                                image: NetworkImage(
+                                  (banner['image_url'] == null || banner['image_url'].isEmpty)
+                                      ? ''
+                                      : (banner['image_url'].startsWith('http') 
+                                          ? banner['image_url'] 
+                                          : 'https://arivoyaepcxaoupzvvbw.supabase.co/storage/v1/object/public/store_images/${banner['image_url']}')
+                                ),
                                 fit: BoxFit.cover,
                               ),
                               borderRadius: BorderRadius.circular(8),
@@ -260,7 +266,7 @@ class _AddEditBannerDialogState extends State<_AddEditBannerDialog> {
         final String publicUrl = Supabase.instance.client.storage.from('store_images').getPublicUrl(uniqueName);
         
         setState(() {
-          _imageUrlController.text = publicUrl;
+          _imageUrlController.text = uniqueName; // ONLY save the relative unique name!
           _isUploading = false;
         });
 

@@ -57,7 +57,11 @@ class StoresScreen extends ConsumerWidget {
                           Row(
                             children: [
                               CircleAvatar(
-                                backgroundImage: store['image_url'] != null ? NetworkImage(store['image_url']) : null,
+                                backgroundImage: store['image_url'] != null 
+                                    ? NetworkImage(store['image_url'].toString().startsWith('http') 
+                                        ? store['image_url'] 
+                                        : 'https://arivoyaepcxaoupzvvbw.supabase.co/storage/v1/object/public/store_images/${store['image_url']}')
+                                    : null,
                                 child: store['image_url'] == null ? const Icon(Icons.store) : null,
                               ),
                               const SizedBox(width: 8),
@@ -341,7 +345,7 @@ class _AddEditStoreDialogState extends State<_AddEditStoreDialog> {
         final String publicUrl = Supabase.instance.client.storage.from('store_images').getPublicUrl(uniqueName);
         
         setState(() {
-          _imageUrlController.text = publicUrl;
+          _imageUrlController.text = uniqueName; // ONLY save relative unique name
           _isUploading = false;
         });
 
