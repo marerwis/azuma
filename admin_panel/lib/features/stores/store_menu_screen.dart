@@ -21,6 +21,20 @@ class StoreMenuScreen extends ConsumerWidget {
           onPressed: () => Navigator.pop(context),
         ),
         actions: [
+          // ── Add Menu Category button ───────────────────────────────────
+          Padding(
+            padding: const EdgeInsets.only(right: 8.0, top: 10, bottom: 10),
+            child: ElevatedButton.icon(
+              onPressed: () => _showAddMenuCategoryDialog(context, ref, store['id']),
+              icon: const Icon(Icons.category, size: 18),
+              label: Text(MediaQuery.of(context).size.width > 600 ? 'إضافة قسم' : 'قسم'),
+              style: ElevatedButton.styleFrom(
+                backgroundColor: Colors.blue,
+                foregroundColor: Colors.white,
+                padding: const EdgeInsets.symmetric(horizontal: 12),
+              ),
+            ),
+          ),
           // ── Add Product button ─────────────────────────────────────────
           Padding(
             padding: const EdgeInsets.only(right: 8.0, left: 16.0, top: 10, bottom: 10),

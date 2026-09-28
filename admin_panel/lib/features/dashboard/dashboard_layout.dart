@@ -37,11 +37,10 @@ class DashboardLayout extends ConsumerWidget {
                 const SizedBox(height: 32),
                 _buildNavItem(ref, index: 0, icon: Icons.dashboard, title: 'الرئيسية'),
                 _buildNavItem(ref, index: 1, icon: Icons.local_offer, title: 'العروض'),
-                _buildNavItem(ref, index: 2, icon: Icons.storefront, title: 'المطاعم'),
-                _buildNavItem(ref, index: 3, icon: Icons.category, title: 'الأقسام والمنتجات'),
-                _buildNavItem(ref, index: 4, icon: Icons.shopping_bag, title: 'الطلبات'),
-                _buildNavItem(ref, index: 5, icon: Icons.account_balance_wallet, title: 'المحافظ'),
-                _buildNavItem(ref, index: 6, icon: Icons.people, title: 'المستخدمين'),
+                _buildNavItem(ref, index: 2, icon: Icons.category, title: 'الأقسام والمطاعم'),
+                _buildNavItem(ref, index: 3, icon: Icons.shopping_bag, title: 'الطلبات'),
+                _buildNavItem(ref, index: 4, icon: Icons.account_balance_wallet, title: 'المحافظ'),
+                _buildNavItem(ref, index: 5, icon: Icons.people, title: 'المستخدمين'),
               ],
             ),
           ),
@@ -84,14 +83,12 @@ class DashboardLayout extends ConsumerWidget {
       case 1:
         return const BannersScreen();
       case 2:
-        return const StoresScreen();
-      case 3:
         return const CategoriesScreen();
-      case 4:
+      case 3:
         return const OrdersScreen();
-      case 5:
+      case 4:
         return const WalletsScreen();
-      case 6:
+      case 5:
         return const UsersScreen();
       default:
         return const OverviewScreen();
