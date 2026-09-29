@@ -13,55 +13,47 @@ jobs:
     runs-on: ubuntu-latest
 
     steps:
+      # ── 1. Checkout ─────────────────────────────────────────────────────────
       - name: Checkout repository
         uses: actions/checkout@v4
 
+      # ── 2. Java 17 (setup-java@v5 — latest) ─────────────────────────────────
       - name: Set up JDK 17
-        uses: actions/setup-java@v4
+        uses: actions/setup-java@v5
         with:
           java-version: "17"
           distribution: "temurin"
           cache: "gradle"
 
-      - name: Cache Gradle packages
-        uses: actions/cache@v4
-        with:
-          path: |
-            ~/.gradle/caches
-            ~/.gradle/wrapper
-          key: ${{ runner.os }}-gradle-${{ hashFiles('**/*.gradle*', '**/gradle-wrapper.properties') }}
-          restore-keys: |
-            ${{ runner.os }}-gradle-
-
+      # ── 3. Grant gradlew execute permission ─────────────────────────────────
       - name: Grant execute permission for gradlew
         run: chmod +x "azuma new/gradlew"
 
+      # ── 4. Write google-services.json from secret ────────────────────────────
       - name: Write google-services.json
         run: echo '${{ secrets.GOOGLE_SERVICES_JSON }}' > "azuma new/app/google-services.json"
 
-      - name: Write Firebase Service Account credentials
+      # ── 5. Write Firebase Service Account key from secret ────────────────────
+      - name: Write Firebase credentials
         run: echo '${{ secrets.FIREBASE_CREDENTIALS }}' > /tmp/firebase-credentials.json
 
-      - name: Write release notes
-        run: |
-          echo "Build #${{ github.run_number }} — Commit: ${{ github.sha }}" > "azuma new/release-notes.txt"
-          echo "Branch: ${{ github.ref_name }} — Triggered by: ${{ github.actor }}" >> "azuma new/release-notes.txt"
-
+      # ── 6. Build the debug APK ───────────────────────────────────────────────
       - name: Build Debug APK
         working-directory: "azuma new"
         run: ./gradlew assembleDebug --stacktrace
-        env:
-          FIREBASE_APP_ID: ${{ secrets.FIREBASE_APP_ID }}
-          FIREBASE_CREDENTIALS_FILE: /tmp/firebase-credentials.json
 
+      # ── 7. Upload to Firebase App Distribution via CLI flags ─────────────────
       - name: Upload to Firebase App Distribution
         working-directory: "azuma new"
-        run: ./gradlew appDistributionUploadDebug --stacktrace
-        env:
-          FIREBASE_APP_ID: ${{ secrets.FIREBASE_APP_ID }}
-          FIREBASE_CREDENTIALS_FILE: /tmp/firebase-credentials.json
+        run: |
+          ./gradlew appDistributionUploadDebug \
+            --app="${{ secrets.FIREBASE_APP_ID }}" \
+            --serviceCredentialsFile="/tmp/firebase-credentials.json" \
+            --releaseNotes="Build #${{ github.run_number }} | ${{ github.sha }} | ${{ github.actor }}" \
+            --groups="testers"
 
-      - name: Upload APK as workflow artifact
+      # ── 8. Upload APK as GitHub artifact (14-day backup) ─────────────────────
+      - name: Upload APK artifact
         uses: actions/upload-artifact@v4
         with:
           name: azooma-debug-${{ github.run_number }}

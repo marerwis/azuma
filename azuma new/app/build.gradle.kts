@@ -43,12 +43,7 @@ android {
     }
     debug {
       // uses Android's default debug keystore automatically
-      firebaseAppDistribution {
-        appId = System.getenv("FIREBASE_APP_ID") ?: "" // set via GitHub Secret
-        serviceCredentialsFile = System.getenv("FIREBASE_CREDENTIALS_FILE") ?: ""
-        releaseNotesFile = "release-notes.txt"
-        groups = "testers" // your tester group name in Firebase App Distribution
-      }
+      // Firebase App Distribution config is passed via CLI flags in CI (see .github/workflows)
     }
   }
   compileOptions {
