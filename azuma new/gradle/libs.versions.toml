@@ -43,7 +43,6 @@ credentials = "1.5.0"
 googleid = "1.1.1"
 supabase = "3.0.0"
 ktor = "3.0.0"
-firebaseAppDistribution = "5.1.1"
 
 
 [libraries]
@@ -112,4 +111,3 @@ kotlin-serialization = { id = "org.jetbrains.kotlin.plugin.serialization", versi
 google-devtools-ksp = { id = "com.google.devtools.ksp", version.ref = "googleDevtoolsKsp" }
 secrets = { id = "com.google.android.libraries.mapsplatform.secrets-gradle-plugin", version.ref = "secretsGradlePlugin" }
 google-services = { id = "com.google.gms.google-services", version.ref = "googleServices" }
-firebase-appdistribution = { id = "com.google.firebase.appdistribution", version.ref = "firebaseAppDistribution" }
