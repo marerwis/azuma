@@ -7,6 +7,7 @@ plugins {
   alias(libs.plugins.google.devtools.ksp)
   alias(libs.plugins.secrets)
   alias(libs.plugins.google.services)
+  alias(libs.plugins.firebase.appdistribution)
 }
 
 android {
@@ -40,7 +41,15 @@ android {
       proguardFiles(getDefaultProguardFile("proguard-android-optimize.txt"), "proguard-rules.pro")
       signingConfig = signingConfigs.getByName("release")
     }
-    debug { /* uses Android's default debug keystore automatically */ }
+    debug {
+      // uses Android's default debug keystore automatically
+      firebaseAppDistribution {
+        appId = System.getenv("FIREBASE_APP_ID") ?: "" // set via GitHub Secret
+        serviceCredentialsFile = System.getenv("FIREBASE_CREDENTIALS_FILE") ?: ""
+        releaseNotesFile = "release-notes.txt"
+        groups = "testers" // your tester group name in Firebase App Distribution
+      }
+    }
   }
   compileOptions {
     sourceCompatibility = JavaVersion.VERSION_11

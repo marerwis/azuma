@@ -15,9 +15,9 @@ data class ApiResponse<T>(
 // ── Auth ────────────────────────────────────────────────────────────────────
 @JsonClass(generateAdapter = true)
 data class VerifyRequest(
-    @Json(name = "id_token") val idToken: String,
-    @Json(name = "fcm_token") val fcmToken: String? = null,
-    @Json(name = "full_name") val fullName: String? = null
+    @Json(name = "idToken") val idToken: String,
+    @Json(name = "fcmToken") val fcmToken: String? = null,
+    @Json(name = "fullName") val fullName: String? = null
 )
 
 @JsonClass(generateAdapter = true)
