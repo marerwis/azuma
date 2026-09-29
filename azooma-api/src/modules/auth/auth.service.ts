@@ -10,6 +10,7 @@ export interface VerifyResult {
   user: {
     id: string;
     firebase_uid: string;
+    phone: string | null;
     email: string | null;
     full_name: string;
     role: string;
@@ -29,16 +30,21 @@ export async function verifyAndSyncUser(
   const decoded = await getAuth().verifyIdToken(idToken);
 
   const firebaseUid = decoded.uid;
+  const phone = decoded.phone_number ?? null;
   const email = decoded.email ?? null;
-  const name =
-    decoded.name ??
-    decoded.email?.split('@')[0] ??
-    'مستخدم جديد';
+  
+  let name = decoded.name;
+  if (!name && email) {
+    name = email.split('@')[0];
+  }
+  if (!name) {
+    name = 'مستخدم جديد';
+  }
+  
   const avatarUrl = decoded.picture ?? null;
 
   // 2. Upsert into public.users (our Supabase table)
   //    We use firebase_uid as the stable identifier.
-  //    `upsert` = create if not exists, update if exists.
   const existing = await prisma.public_users.findFirst({
     where: { firebase_uid: firebaseUid },
   });
@@ -47,17 +53,21 @@ export async function verifyAndSyncUser(
   let isNewUser: boolean;
 
   if (existing) {
-    // Update last-seen data (fcm_token, avatar, name if changed)
+    // Update last-seen data (fcm_token, avatar, name, email, phone if missing)
     const updated = await prisma.public_users.update({
       where: { id: existing.id },
       data: {
         fcm_token: fcmToken ?? existing.fcm_token,
         avatar_url: avatarUrl ?? existing.avatar_url,
+        email: email ?? existing.email,
+        phone: phone ?? existing.phone,
+        full_name: (existing.full_name === 'مستخدم جديد' && name !== 'مستخدم جديد') ? name : existing.full_name,
         updated_at: new Date(),
       },
       select: {
         id: true,
         firebase_uid: true,
+        phone: true,
         email: true,
         full_name: true,
         role: true,
@@ -74,6 +84,7 @@ export async function verifyAndSyncUser(
     const created = await prisma.public_users.create({
       data: {
         firebase_uid: firebaseUid,
+        phone: phone,
         email: email,
         full_name: name,
         avatar_url: avatarUrl,
@@ -84,6 +95,7 @@ export async function verifyAndSyncUser(
       select: {
         id: true,
         firebase_uid: true,
+        phone: true,
         email: true,
         full_name: true,
         role: true,
