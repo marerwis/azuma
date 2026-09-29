@@ -27,13 +27,13 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.example.R
-import com.example.data.SampleData
 import com.example.model.Store
 import com.example.ui.theme.*
 
 @Composable
 fun SearchScreen(
     searchQuery: String,
+    stores: List<Store>,
     recentSearches: List<String>,
     onQueryChange: (String) -> Unit,
     onSearchSubmit: (String) -> Unit,
@@ -44,7 +44,7 @@ fun SearchScreen(
     val searchResults = if (searchQuery.isBlank()) {
         emptyList()
     } else {
-        SampleData.stores.filter {
+        stores.filter {
             it.name.contains(searchQuery, ignoreCase = true) ||
                     it.tags.any { tag -> tag.contains(searchQuery, ignoreCase = true) }
         }
@@ -115,8 +115,8 @@ fun SearchScreen(
                         .clip(RoundedCornerShape(16.dp))
                         .border(1.5.dp, AzoomaOrange, RoundedCornerShape(16.dp))
                         .clickable {
-                            val store = SampleData.stores.find { it.id == "albaron" } ?: SampleData.stores.first()
-                            onStoreClick(store)
+                            val store = stores.find { it.id == "albaron" } ?: stores.firstOrNull()
+                            if (store != null) onStoreClick(store)
                         }
                         .testTag("trending_item_btn"),
                     color = Color.White,

@@ -27,19 +27,19 @@ import androidx.compose.ui.text.style.TextDecoration
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.example.R
-import com.example.data.SampleData
 import com.example.model.Store
 import com.example.ui.theme.*
 
 @Composable
 fun OffersScreen(
+    stores: List<Store>,
     onBackClick: () -> Unit,
     onStoreClick: (Store) -> Unit,
     favoriteStoreIds: Set<String>,
     onToggleFavorite: (String) -> Unit,
     modifier: Modifier = Modifier
 ) {
-    val offerStores = SampleData.stores.filter { it.hasOffer }
+    val offerStores = stores.filter { it.hasOffer }
 
     LazyColumn(
         modifier = modifier

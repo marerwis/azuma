@@ -9,17 +9,19 @@ import androidx.activity.enableEdgeToEdge
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.systemBarsPadding
+import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.Scaffold
 import androidx.compose.material3.SnackbarHost
 import androidx.compose.material3.SnackbarHostState
 import androidx.compose.runtime.*
+import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.LocalLayoutDirection
 import androidx.compose.ui.unit.LayoutDirection
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.lifecycle.viewmodel.compose.viewModel
-import com.example.data.SampleData
 import com.example.ui.components.*
 import com.example.ui.screens.*
 import com.example.ui.theme.MyApplicationTheme
@@ -36,7 +38,9 @@ class MainActivity : ComponentActivity() {
             MyApplicationTheme {
                 // STRICT GLOBAL RTL ENFORCEMENT FOR THE ENTIRE APPLICATION
                 CompositionLocalProvider(LocalLayoutDirection provides LayoutDirection.Rtl) {
-                    AzoomaApp()
+                    androidx.compose.material3.Surface(modifier = Modifier.fillMaxSize().systemBarsPadding()) {
+                        AzoomaApp()
+                    }
                 }
             }
         }
@@ -50,7 +54,7 @@ fun AzoomaApp(viewModel: AzoomaViewModel = viewModel()) {
     val coroutineScope = rememberCoroutineScope()
     val snackbarHostState = remember { SnackbarHostState() }
 
-    // If unauthenticated: Display Welcome Screen (Matching User's Uploaded Screenshot)
+    // If unauthenticated: Display Welcome Screen
     if (!uiState.isAuthenticated) {
         WelcomeScreen(
             onRegisterClick = { viewModel.startRegister() },
@@ -58,16 +62,24 @@ fun AzoomaApp(viewModel: AzoomaViewModel = viewModel()) {
             onContinueAsGuestClick = { viewModel.continueAsGuest() }
         )
 
-        // Auth Bottom Sheet (Phone + OTP)
+        // Auth Bottom Sheet (Firebase Phone Auth → API verify)
         if (uiState.showAuthSheet) {
             AuthSheet(
                 isRegister = uiState.authMode == "REGISTER",
                 onDismiss = { viewModel.dismissAuthSheet() },
-                onSuccess = { name, phone ->
-                    viewModel.authenticateUser(name, phone)
-                    Toast.makeText(context, "مرحباً بك في عزومة! تم الدخول بنجاح", Toast.LENGTH_SHORT).show()
+                onSuccess = { idToken, name ->
+                    // Token verified by Firebase → send to our Node.js API to sync user
+                    viewModel.verifyWithApi(idToken = idToken, fullName = name.ifBlank { null })
                 }
             )
+        }
+
+        // Show API-level auth error as a toast (e.g. server unreachable)
+        val authError = uiState.authError
+        LaunchedEffect(authError) {
+            if (authError != null) {
+                Toast.makeText(context, "خطأ: $authError", Toast.LENGTH_LONG).show()
+            }
         }
         return
     }
@@ -99,25 +111,33 @@ fun AzoomaApp(viewModel: AzoomaViewModel = viewModel()) {
         ) {
             when (uiState.currentSubScreen) {
                 SubScreen.CATEGORY_DETAIL -> {
-                    CategoryDetailScreen(
-                        category = uiState.selectedCategory ?: SampleData.categories.first(),
-                        onBackClick = { viewModel.navigateBack() },
-                        onStoreClick = { viewModel.openStore(it) }
-                    )
+                    val category = uiState.selectedCategory
+                    if (category != null) {
+                        CategoryDetailScreen(
+                            category = category,
+                            stores = uiState.stores,
+                            onBackClick = { viewModel.navigateBack() },
+                            onStoreClick = { viewModel.openStore(it) }
+                        )
+                    }
                 }
 
                 SubScreen.STORE_PROFILE -> {
-                    val store = uiState.selectedStore ?: SampleData.stores.first()
-                    StoreProfileScreen(
-                        store = store,
-                        cartState = uiState.cartState,
-                        isFavorite = uiState.favoriteStoreIds.contains(store.id),
-                        onToggleFavorite = { viewModel.toggleFavorite(store.id) },
-                        onBackClick = { viewModel.navigateBack() },
-                        onAddToCart = { viewModel.addToCart(it, store) },
-                        onRemoveFromCart = { viewModel.removeFromCart(it) },
-                        onViewCartClick = { viewModel.selectTab(BottomTab.CART) }
-                    )
+                    val store = uiState.selectedStore
+                    if (store != null) {
+                        StoreProfileScreen(
+                            store = store,
+                            storeMenu = uiState.selectedStoreMenu,
+                            isLoadingMenu = uiState.isLoadingStoreMenu,
+                            cartState = uiState.cartState,
+                            isFavorite = uiState.favoriteStoreIds.contains(store.id),
+                            onToggleFavorite = { viewModel.toggleFavorite(store.id) },
+                            onBackClick = { viewModel.navigateBack() },
+                            onAddToCart = { viewModel.addToCart(it, store) },
+                            onRemoveFromCart = { viewModel.removeFromCart(it) },
+                            onViewCartClick = { viewModel.selectTab(BottomTab.CART) }
+                        )
+                    }
                 }
 
                 SubScreen.CHECKOUT -> {
@@ -136,16 +156,18 @@ fun AzoomaApp(viewModel: AzoomaViewModel = viewModel()) {
                 }
 
                 SubScreen.ORDER_TRACKING -> {
-                    val order = uiState.activeTrackingOrder ?: uiState.orders.first()
-                    OrderTrackingScreen(
-                        order = order,
-                        driverProgress = uiState.trackingProgress,
-                        etaMinutes = uiState.trackingEtaMinutes,
-                        onBackClick = { viewModel.navigateBack() },
-                        onCallDriver = {
-                            Toast.makeText(context, "جارٍ الاتصال بالسائق ${order.driverName}...", Toast.LENGTH_SHORT).show()
-                        }
-                    )
+                    val order = uiState.activeTrackingOrder ?: uiState.orders.firstOrNull()
+                    if (order != null) {
+                        OrderTrackingScreen(
+                            order = order,
+                            driverProgress = uiState.trackingProgress,
+                            etaMinutes = uiState.trackingEtaMinutes,
+                            onBackClick = { viewModel.navigateBack() },
+                            onCallDriver = {
+                                Toast.makeText(context, "جارٍ الاتصال بالسائق ${order.driverName}...", Toast.LENGTH_SHORT).show()
+                            }
+                        )
+                    }
                 }
 
                 SubScreen.WALLET -> {
@@ -185,6 +207,7 @@ fun AzoomaApp(viewModel: AzoomaViewModel = viewModel()) {
 
                 SubScreen.OFFERS -> {
                     OffersScreen(
+                        stores = uiState.stores,
                         onBackClick = { viewModel.navigateBack() },
                         onStoreClick = { viewModel.openStore(it) },
                         favoriteStoreIds = uiState.favoriteStoreIds,
@@ -193,73 +216,85 @@ fun AzoomaApp(viewModel: AzoomaViewModel = viewModel()) {
                 }
 
                 SubScreen.NONE -> {
-                    // Main 5 Bottom Tabs
-                    when (uiState.currentTab) {
-                        BottomTab.HOME -> {
-                            HomeScreen(
-                                currentAddressName = uiState.currentAddress.name,
-                                onAddressClick = { viewModel.showAddressPicker(true) },
-                                onSearchClick = { viewModel.selectTab(BottomTab.SEARCH) },
-                                onNotificationClick = { viewModel.openSubScreen(SubScreen.NOTIFICATIONS) },
-                                onCategoryClick = { viewModel.openCategory(it) },
-                                onStoreClick = { viewModel.openStore(it) },
-                                onViewAllOffersClick = { viewModel.openSubScreen(SubScreen.OFFERS) }
-                            )
+                    // Show global loading indicator while Supabase data is being fetched
+                    if (uiState.isLoadingData && uiState.stores.isEmpty()) {
+                        Box(modifier = Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
+                            CircularProgressIndicator()
                         }
+                    } else {
+                        // Main 5 Bottom Tabs
+                        when (uiState.currentTab) {
+                            BottomTab.HOME -> {
+                                HomeScreen(
+                                    currentAddressName = uiState.currentAddress.name,
+                                    categories = uiState.appCategories,
+                                    stores = uiState.stores,
+                                    banners = uiState.appBanners,
+                                    onAddressClick = { viewModel.showAddressPicker(true) },
+                                    onSearchClick = { viewModel.selectTab(BottomTab.SEARCH) },
+                                    onNotificationClick = { viewModel.openSubScreen(SubScreen.NOTIFICATIONS) },
+                                    onCategoryClick = { viewModel.openCategory(it) },
+                                    onStoreClick = { viewModel.openStore(it) },
+                                    onViewAllOffersClick = { viewModel.openSubScreen(SubScreen.OFFERS) }
+                                )
+                            }
 
-                        BottomTab.SEARCH -> {
-                            SearchScreen(
-                                searchQuery = uiState.searchQuery,
-                                recentSearches = uiState.recentSearches,
-                                onQueryChange = { viewModel.updateSearchQuery(it) },
-                                onSearchSubmit = { viewModel.addRecentSearch(it) },
-                                onRemoveRecentSearch = { viewModel.removeRecentSearch(it) },
-                                onStoreClick = { viewModel.openStore(it) }
-                            )
-                        }
+                            BottomTab.SEARCH -> {
+                                SearchScreen(
+                                    searchQuery = uiState.searchQuery,
+                                    stores = uiState.stores,
+                                    recentSearches = uiState.recentSearches,
+                                    onQueryChange = { viewModel.updateSearchQuery(it) },
+                                    onSearchSubmit = { viewModel.addRecentSearch(it) },
+                                    onRemoveRecentSearch = { viewModel.removeRecentSearch(it) },
+                                    onStoreClick = { viewModel.openStore(it) }
+                                )
+                            }
 
-                        BottomTab.CART -> {
-                            CartScreen(
-                                cartState = uiState.cartState,
-                                onBackClick = { viewModel.navigateBack() },
-                                onAddToCart = { viewModel.addToCart(it) },
-                                onRemoveFromCart = { viewModel.removeFromCart(it) },
-                                onDeleteItem = { viewModel.deleteItemFromCart(it) },
-                                onAddMoreItemsClick = {
-                                    if (uiState.selectedStore != null) {
-                                        viewModel.openSubScreen(SubScreen.STORE_PROFILE)
-                                    } else {
-                                        viewModel.selectTab(BottomTab.HOME)
-                                    }
-                                },
-                                onStoreNoteChange = { viewModel.setStoreNote(it) },
-                                onContinueClick = { viewModel.openSubScreen(SubScreen.CHECKOUT) }
-                            )
-                        }
+                            BottomTab.CART -> {
+                                CartScreen(
+                                    cartState = uiState.cartState,
+                                    recommendedItems = uiState.menuItems,
+                                    onBackClick = { viewModel.navigateBack() },
+                                    onAddToCart = { viewModel.addToCart(it) },
+                                    onRemoveFromCart = { viewModel.removeFromCart(it) },
+                                    onDeleteItem = { viewModel.deleteItemFromCart(it) },
+                                    onAddMoreItemsClick = {
+                                        if (uiState.selectedStore != null) {
+                                            viewModel.openSubScreen(SubScreen.STORE_PROFILE)
+                                        } else {
+                                            viewModel.selectTab(BottomTab.HOME)
+                                        }
+                                    },
+                                    onStoreNoteChange = { viewModel.setStoreNote(it) },
+                                    onContinueClick = { viewModel.openSubScreen(SubScreen.CHECKOUT) }
+                                )
+                            }
 
-                        BottomTab.ORDERS -> {
-                            OrdersScreen(
-                                orders = uiState.orders,
-                                activeTrackingOrder = uiState.activeTrackingOrder,
-                                onTrackOrder = { viewModel.trackOrder(it) },
-                                onReorder = { viewModel.reorder(it) }
-                            )
-                        }
+                            BottomTab.ORDERS -> {
+                                OrdersScreen(
+                                    orders = uiState.orders,
+                                    activeTrackingOrder = uiState.activeTrackingOrder,
+                                    onTrackOrder = { viewModel.trackOrder(it) },
+                                    onReorder = { viewModel.reorder(it) }
+                                )
+                            }
 
-                        BottomTab.ACCOUNT -> {
-                            AccountScreen(
-                                userName = uiState.userName,
-                                userPhone = uiState.userPhone,
-                                onFavoritesClick = {
-                                    coroutineScope.launch {
-                                        snackbarHostState.showSnackbar("لديك ${uiState.favoriteStoreIds.size} متاجر في المفضلة")
-                                    }
-                                },
-                                onAddressesClick = { viewModel.openSubScreen(SubScreen.ADDRESSES) },
-                                onWalletClick = { viewModel.openSubScreen(SubScreen.WALLET) },
-                                onNotificationClick = { viewModel.openSubScreen(SubScreen.NOTIFICATIONS) },
-                                onLogoutClick = { viewModel.showLogoutDialog(true) }
-                            )
+                            BottomTab.ACCOUNT -> {
+                                AccountScreen(
+                                    userName = uiState.userName,
+                                    userPhone = uiState.userPhone,
+                                    onFavoritesClick = {
+                                        coroutineScope.launch {
+                                            snackbarHostState.showSnackbar("لديك ${uiState.favoriteStoreIds.size} متاجر في المفضلة")
+                                        }
+                                    },
+                                    onAddressesClick = { viewModel.openSubScreen(SubScreen.ADDRESSES) },
+                                    onWalletClick = { viewModel.openSubScreen(SubScreen.WALLET) },
+                                    onNotificationClick = { viewModel.openSubScreen(SubScreen.NOTIFICATIONS) },
+                                    onLogoutClick = { viewModel.showLogoutDialog(true) }
+                                )
+                            }
                         }
                     }
                 }
@@ -267,7 +302,7 @@ fun AzoomaApp(viewModel: AzoomaViewModel = viewModel()) {
         }
     }
 
-    // Payment Selection Bottom Sheet (Screenshot 7)
+    // Payment Selection Bottom Sheet
     if (uiState.showPaymentSheet) {
         PaymentMethodSheet(
             selectedType = uiState.selectedPaymentType,
@@ -282,7 +317,7 @@ fun AzoomaApp(viewModel: AzoomaViewModel = viewModel()) {
         )
     }
 
-    // Wallet Recharge Sheet (Screenshots 21 & 22)
+    // Wallet Recharge Sheet
     if (uiState.showRechargeSheet) {
         WalletRechargeSheet(
             onDismiss = { viewModel.showRechargeSheet(false) },
@@ -293,7 +328,7 @@ fun AzoomaApp(viewModel: AzoomaViewModel = viewModel()) {
         )
     }
 
-    // Add / Edit Address Sheet (Screenshots 23 & 24)
+    // Add / Edit Address Sheet
     if (uiState.showAddressPickerSheet) {
         AddAddressSheet(
             onDismiss = { viewModel.showAddressPicker(false) },
@@ -304,7 +339,7 @@ fun AzoomaApp(viewModel: AzoomaViewModel = viewModel()) {
         )
     }
 
-    // Logout Confirmation Dialog (Screenshot 25)
+    // Logout Confirmation Dialog
     if (uiState.showLogoutDialog) {
         LogoutConfirmationDialog(
             onDismiss = { viewModel.showLogoutDialog(false) },

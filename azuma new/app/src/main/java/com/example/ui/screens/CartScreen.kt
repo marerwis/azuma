@@ -30,7 +30,6 @@ import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.example.R
-import com.example.data.SampleData
 import com.example.model.CartState
 import com.example.model.MenuItem
 import com.example.ui.theme.*
@@ -38,6 +37,7 @@ import com.example.ui.theme.*
 @Composable
 fun CartScreen(
     cartState: CartState,
+    recommendedItems: List<MenuItem>,
     onBackClick: () -> Unit,
     onAddToCart: (MenuItem) -> Unit,
     onRemoveFromCart: (MenuItem) -> Unit,
@@ -361,7 +361,7 @@ fun CartScreen(
                     modifier = Modifier.padding(horizontal = 20.dp, vertical = 6.dp)
                 )
 
-                val recommendations = SampleData.menuItems.filter { it.isPopular }.take(4)
+                val recommendations = recommendedItems.filter { it.isPopular }.take(4)
                 LazyRow(
                     modifier = Modifier.fillMaxWidth(),
                     contentPadding = PaddingValues(horizontal = 16.dp),

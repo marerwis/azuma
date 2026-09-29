@@ -31,14 +31,14 @@ import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.example.R
-import com.example.data.SampleData
+import com.example.model.AppCategory
 import com.example.model.Store
-import com.example.model.StoreCategory
 import com.example.ui.theme.*
 
 @Composable
 fun CategoryDetailScreen(
-    category: StoreCategory,
+    category: AppCategory,
+    stores: List<Store>,
     onBackClick: () -> Unit,
     onStoreClick: (Store) -> Unit,
     modifier: Modifier = Modifier
@@ -180,7 +180,7 @@ fun CategoryDetailScreen(
                 )
             }
 
-            val featured = SampleData.stores.filter { it.isFeatured }
+            val featured = stores.filter { it.isFeatured }
             LazyRow(
                 modifier = Modifier.fillMaxWidth(),
                 contentPadding = PaddingValues(horizontal = 16.dp),
@@ -268,7 +268,7 @@ fun CategoryDetailScreen(
             }
         }
 
-        items(SampleData.stores) { store ->
+        items(stores) { store ->
             Surface(
                 modifier = Modifier
                     .fillMaxWidth()

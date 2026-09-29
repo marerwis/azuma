@@ -3,6 +3,9 @@ package com.example.viewmodel
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import com.example.data.SampleData
+import com.example.data.api.RetrofitClient
+import com.example.data.repository.ApiResult
+import com.example.data.repository.AzoomaRepository
 import com.example.model.*
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.MutableStateFlow
@@ -32,16 +35,41 @@ enum class SubScreen {
 }
 
 data class UiState(
+    // ── Loading ──────────────────────────────────────────────────────────────
+    val isLoadingData: Boolean = true,
+
+    // ── Live API Data ─────────────────────────────────────────────────────────
+    val appCategories: List<AppCategory> = emptyList(),
+    val stores: List<Store> = emptyList(),
+    val menuCategories: List<MenuCategory> = emptyList(),
+    val menuItems: List<MenuItem> = emptyList(),
+    val appBanners: List<AppBanner> = emptyList(),
+
+    // ── Selected Store Nested Menu (fetched on demand) ────────────────────────
+    val isLoadingStoreMenu: Boolean = false,
+    val selectedStoreMenu: List<MenuCategoryWithProducts> = emptyList(),
+
+    // ── Authentication ────────────────────────────────────────────────────────
     val isAuthenticated: Boolean = false,
     val showAuthSheet: Boolean = false,
-    val authMode: String = "REGISTER", // "REGISTER" or "LOGIN"
+    val authMode: String = "REGISTER",
+    val isAuthLoading: Boolean = false,      // spinner during verify call
+    val authError: String? = null,           // error message to show user
+    val userSession: UserSession? = null,    // set after successful verify
+    // Legacy display fields kept for UI compatibility
     val userName: String = "مرعي زلاوي",
     val userPhone: String = "+218-914333564",
+
+    // ── Navigation ────────────────────────────────────────────────────────────
     val currentTab: BottomTab = BottomTab.HOME,
     val currentSubScreen: SubScreen = SubScreen.NONE,
     val selectedStore: Store? = null,
-    val selectedCategory: StoreCategory? = null,
+    val selectedCategory: AppCategory? = null,
+
+    // ── Cart ──────────────────────────────────────────────────────────────────
     val cartState: CartState = CartState(),
+
+    // ── User Session Data (local-only) ────────────────────────────────────────
     val currentAddress: Address = SampleData.initialAddresses.first(),
     val addresses: List<Address> = SampleData.initialAddresses,
     val orders: List<Order> = SampleData.initialOrders,
@@ -51,14 +79,14 @@ data class UiState(
     val selectedPaymentType: PaymentType = PaymentType.CASH,
     val searchQuery: String = "",
     val recentSearches: List<String> = listOf("كابتشينو", "شاورما دجاج", "ساندوتش كباب"),
-    val favoriteStoreIds: Set<String> = setOf("shnabo", "robusta"),
+    val favoriteStoreIds: Set<String> = setOf(),
     val notifications: List<NotificationItem> = SampleData.initialNotifications,
     val showLogoutDialog: Boolean = false,
     val showPaymentSheet: Boolean = false,
     val showRechargeSheet: Boolean = false,
     val showAddressPickerSheet: Boolean = false,
     val showOrderSuccessDialog: Boolean = false,
-    val trackingProgress: Float = 0.65f, // driver progress along route 0.0 to 1.0
+    val trackingProgress: Float = 0.65f,
     val trackingEtaMinutes: Int = 14
 )
 
@@ -67,23 +95,112 @@ class AzoomaViewModel : ViewModel() {
     private val _uiState = MutableStateFlow(UiState())
     val uiState: StateFlow<UiState> = _uiState.asStateFlow()
 
-    init {
-        // Pre-populate 1 sample item in cart from Shnabo like user's screenshot
-        val sampleItem = SampleData.menuItems.first { it.id == "sh_7" } // كباب دجاج - فطيرة (9 د.ل)
-        _uiState.update {
-            it.copy(
-                cartState = CartState(
-                    items = listOf(CartItem(menuItem = sampleItem, quantity = 1)),
-                    storeId = "shnabo",
-                    storeName = "شنابو - طريق المطار"
-                ),
-                selectedStore = SampleData.stores.first { s -> s.id == "shnabo" }
-            )
-        }
+    // Token provider — set from MainActivity after Firebase Auth gives us the token
+    private var _idToken: String? = null
+    private val repository = AzoomaRepository(
+        RetrofitClient.create(tokenProvider = { _idToken })
+    )
 
-        // Live driver movement loop when tracking
-        startDriverSimulation()
+    /** Called from MainActivity once Firebase delivers the current user's ID token. */
+    fun setFirebaseIdToken(token: String?) {
+        _idToken = token
     }
+
+    init {
+        startDriverSimulation()
+        fetchInitialData()
+    }
+
+    // ── Data Fetching ─────────────────────────────────────────────────────────
+
+    private fun fetchInitialData() {
+        viewModelScope.launch {
+            _uiState.update { it.copy(isLoadingData = true) }
+
+            // Run all three in parallel using separate coroutines, collect results
+            val categoriesResult = repository.getCategories()
+            val storesResult = repository.getStores()
+            val bannersResult = repository.getBanners()
+
+            _uiState.update { state ->
+                state.copy(
+                    isLoadingData = false,
+                    appCategories = when (categoriesResult) {
+                        is ApiResult.Success -> categoriesResult.data
+                        is ApiResult.Error -> {
+                            android.util.Log.e("ViewModel", "Categories error: ${categoriesResult.message}")
+                            state.appCategories
+                        }
+                    },
+                    stores = when (storesResult) {
+                        is ApiResult.Success -> storesResult.data
+                        is ApiResult.Error -> {
+                            android.util.Log.e("ViewModel", "Stores error: ${storesResult.message}")
+                            state.stores
+                        }
+                    },
+                    appBanners = when (bannersResult) {
+                        is ApiResult.Success -> bannersResult.data
+                        is ApiResult.Error -> state.appBanners
+                    }
+                )
+            }
+        }
+    }
+
+    private fun fetchStoreMenu(storeId: String) {
+        viewModelScope.launch {
+            _uiState.update { it.copy(isLoadingStoreMenu = true) }
+            when (val result = repository.getStoreMenu(storeId)) {
+                is ApiResult.Success -> _uiState.update {
+                    it.copy(isLoadingStoreMenu = false, selectedStoreMenu = result.data)
+                }
+                is ApiResult.Error -> {
+                    android.util.Log.e("ViewModel", "StoreMenu error: ${result.message}")
+                    _uiState.update { it.copy(isLoadingStoreMenu = false) }
+                }
+            }
+        }
+    }
+
+    // ── Auth ──────────────────────────────────────────────────────────────────
+
+    /**
+     * Called after Firebase Phone Auth completes and we have a valid ID token.
+     * Sends the token to our Node.js API, syncs the user in Supabase, and
+     * updates UI state with the returned user session.
+     */
+    fun verifyWithApi(idToken: String, fullName: String? = null, fcmToken: String? = null) {
+        viewModelScope.launch {
+            _uiState.update { it.copy(isAuthLoading = true, authError = null) }
+            _idToken = idToken // store for future authenticated requests
+
+            when (val result = repository.verifyFirebaseToken(idToken, fcmToken, fullName)) {
+                is ApiResult.Success -> {
+                    val session = result.data
+                    _uiState.update {
+                        it.copy(
+                            isAuthLoading = false,
+                            isAuthenticated = true,
+                            showAuthSheet = false,
+                            userSession = session,
+                            userName = session.fullName.ifBlank { fullName ?: "مستخدم" },
+                            userPhone = session.phone ?: "",
+                            currentTab = BottomTab.HOME,
+                            currentSubScreen = SubScreen.NONE
+                        )
+                    }
+                }
+                is ApiResult.Error -> {
+                    _uiState.update {
+                        it.copy(isAuthLoading = false, authError = result.message)
+                    }
+                }
+            }
+        }
+    }
+
+    // ── Driver Simulation ─────────────────────────────────────────────────────
 
     private fun startDriverSimulation() {
         viewModelScope.launch {
@@ -93,25 +210,17 @@ class AzoomaViewModel : ViewModel() {
                     if (state.activeTrackingOrder != null) {
                         val nextProgress = (state.trackingProgress + 0.04f).coerceAtMost(0.95f)
                         val nextEta = (state.trackingEtaMinutes - 1).coerceAtLeast(1)
-                        state.copy(
-                            trackingProgress = nextProgress,
-                            trackingEtaMinutes = nextEta
-                        )
-                    } else {
-                        state
-                    }
+                        state.copy(trackingProgress = nextProgress, trackingEtaMinutes = nextEta)
+                    } else state
                 }
             }
         }
     }
 
+    // ── Navigation ────────────────────────────────────────────────────────────
+
     fun selectTab(tab: BottomTab) {
-        _uiState.update {
-            it.copy(
-                currentTab = tab,
-                currentSubScreen = SubScreen.NONE
-            )
-        }
+        _uiState.update { it.copy(currentTab = tab, currentSubScreen = SubScreen.NONE) }
     }
 
     fun openSubScreen(subScreen: SubScreen) {
@@ -135,28 +244,26 @@ class AzoomaViewModel : ViewModel() {
         _uiState.update {
             it.copy(
                 selectedStore = store,
+                selectedStoreMenu = emptyList(),
                 currentSubScreen = SubScreen.STORE_PROFILE
             )
         }
+        fetchStoreMenu(store.id)
     }
 
     fun openStoreById(storeId: String) {
-        val store = SampleData.stores.find { it.id == storeId } ?: SampleData.stores.first()
+        val store = _uiState.value.stores.find { it.id == storeId } ?: return
         openStore(store)
     }
 
-    fun openCategory(category: StoreCategory) {
-        _uiState.update {
-            it.copy(
-                selectedCategory = category,
-                currentSubScreen = SubScreen.CATEGORY_DETAIL
-            )
-        }
+    fun openCategory(category: AppCategory) {
+        _uiState.update { it.copy(selectedCategory = category, currentSubScreen = SubScreen.CATEGORY_DETAIL) }
     }
 
-    // Cart Management
+    // ── Cart Management ───────────────────────────────────────────────────────
+
     fun addToCart(item: MenuItem, store: Store? = null) {
-        val activeStore = store ?: _uiState.value.selectedStore ?: SampleData.stores.first()
+        val activeStore = store ?: _uiState.value.selectedStore ?: return
         _uiState.update { state ->
             val currentCart = state.cartState
             val isNewStore = currentCart.storeId != null && currentCart.storeId != activeStore.id
@@ -195,15 +302,11 @@ class AzoomaViewModel : ViewModel() {
             } else {
                 currentCart.items.filterNot { it.menuItem.id == item.id }
             }
-
-            val storeId = if (updatedItems.isEmpty()) null else currentCart.storeId
-            val storeName = if (updatedItems.isEmpty()) "" else currentCart.storeName
-
             state.copy(
                 cartState = currentCart.copy(
                     items = updatedItems,
-                    storeId = storeId,
-                    storeName = storeName
+                    storeId = if (updatedItems.isEmpty()) null else currentCart.storeId,
+                    storeName = if (updatedItems.isEmpty()) "" else currentCart.storeName
                 )
             )
         }
@@ -223,50 +326,20 @@ class AzoomaViewModel : ViewModel() {
         }
     }
 
-    fun clearCart() {
-        _uiState.update { it.copy(cartState = CartState()) }
-    }
-
-    fun setStoreNote(note: String) {
-        _uiState.update { it.copy(cartState = it.cartState.copy(storeNote = note)) }
-    }
-
-    fun setDeliveryNote(note: String) {
-        _uiState.update { it.copy(cartState = it.cartState.copy(deliveryNote = note)) }
-    }
-
-    fun toggleDeliveryMode(isDelivery: Boolean) {
-        _uiState.update { it.copy(cartState = it.cartState.copy(isDelivery = isDelivery)) }
-    }
-
-    fun setPaymentType(type: PaymentType) {
-        _uiState.update { it.copy(selectedPaymentType = type, showPaymentSheet = false) }
-    }
-
-    fun showPaymentSheet(show: Boolean) {
-        _uiState.update { it.copy(showPaymentSheet = show) }
-    }
-
-    fun showRechargeSheet(show: Boolean) {
-        _uiState.update { it.copy(showRechargeSheet = show) }
-    }
-
-    fun showLogoutDialog(show: Boolean) {
-        _uiState.update { it.copy(showLogoutDialog = show) }
-    }
-
-    fun showAddressPicker(show: Boolean) {
-        _uiState.update { it.copy(showAddressPickerSheet = show) }
-    }
+    fun clearCart() { _uiState.update { it.copy(cartState = CartState()) } }
+    fun setStoreNote(note: String) { _uiState.update { it.copy(cartState = it.cartState.copy(storeNote = note)) } }
+    fun setDeliveryNote(note: String) { _uiState.update { it.copy(cartState = it.cartState.copy(deliveryNote = note)) } }
+    fun toggleDeliveryMode(isDelivery: Boolean) { _uiState.update { it.copy(cartState = it.cartState.copy(isDelivery = isDelivery)) } }
+    fun setPaymentType(type: PaymentType) { _uiState.update { it.copy(selectedPaymentType = type, showPaymentSheet = false) } }
+    fun showPaymentSheet(show: Boolean) { _uiState.update { it.copy(showPaymentSheet = show) } }
+    fun showRechargeSheet(show: Boolean) { _uiState.update { it.copy(showRechargeSheet = show) } }
+    fun showLogoutDialog(show: Boolean) { _uiState.update { it.copy(showLogoutDialog = show) } }
+    fun showAddressPicker(show: Boolean) { _uiState.update { it.copy(showAddressPickerSheet = show) } }
 
     fun selectAddress(address: Address) {
         _uiState.update { state ->
             val updated = state.addresses.map { it.copy(isDefault = it.id == address.id) }
-            state.copy(
-                currentAddress = address.copy(isDefault = true),
-                addresses = updated,
-                showAddressPickerSheet = false
-            )
+            state.copy(currentAddress = address.copy(isDefault = true), addresses = updated, showAddressPickerSheet = false)
         }
     }
 
@@ -281,11 +354,7 @@ class AzoomaViewModel : ViewModel() {
         )
         _uiState.update { state ->
             val updated = state.addresses.map { it.copy(isDefault = false) } + newAddr
-            state.copy(
-                addresses = updated,
-                currentAddress = newAddr,
-                showAddressPickerSheet = false
-            )
+            state.copy(addresses = updated, currentAddress = newAddr, showAddressPickerSheet = false)
         }
     }
 
@@ -300,7 +369,8 @@ class AzoomaViewModel : ViewModel() {
         }
     }
 
-    // Confirm Order
+    // ── Order Placement (local for now) ──────────────────────────────────────
+
     fun confirmOrder() {
         val cart = _uiState.value.cartState
         if (cart.items.isEmpty()) return
@@ -308,7 +378,6 @@ class AzoomaViewModel : ViewModel() {
         val orderNum = (10000000..99999999).random().toString()
         val total = cart.grandTotal
 
-        // Deduct from wallet if wallet payment
         if (_uiState.value.selectedPaymentType == PaymentType.WALLET) {
             val newBalance = (_uiState.value.walletBalance - total).coerceAtLeast(0.0)
             val newTx = WalletTransaction(
@@ -320,18 +389,15 @@ class AzoomaViewModel : ViewModel() {
                 isDeduction = true
             )
             _uiState.update {
-                it.copy(
-                    walletBalance = newBalance,
-                    walletTransactions = listOf(newTx) + it.walletTransactions
-                )
+                it.copy(walletBalance = newBalance, walletTransactions = listOf(newTx) + it.walletTransactions)
             }
         }
 
         val newOrder = Order(
             id = "ord_${System.currentTimeMillis()}",
             orderNumber = orderNum,
-            storeName = cart.storeName.ifBlank { "شنابو - طريق المطار" },
-            storeAddress = "طريق المطار، بنغازي",
+            storeName = cart.storeName.ifBlank { "المطعم" },
+            storeAddress = "بنغازي",
             deliveryAddress = _uiState.value.currentAddress.name,
             itemsSummary = cart.items.map { it.menuItem.name to it.quantity },
             totalPrice = total,
@@ -340,7 +406,6 @@ class AzoomaViewModel : ViewModel() {
             isStore = false,
             estimatedArrivalMinutes = 18
         )
-
         val newNotif = NotificationItem(
             id = "notif_${System.currentTimeMillis()}",
             title = "تم تأكيد طلبك بنجاح! 🛵",
@@ -349,7 +414,6 @@ class AzoomaViewModel : ViewModel() {
             isRead = false,
             orderId = newOrder.id
         )
-
         _uiState.update {
             it.copy(
                 orders = listOf(newOrder) + it.orders,
@@ -363,6 +427,8 @@ class AzoomaViewModel : ViewModel() {
         }
     }
 
+    // ── Wallet ────────────────────────────────────────────────────────────────
+
     fun rechargeWallet(amount: Double, method: String) {
         val newTx = WalletTransaction(
             id = "tx_${System.currentTimeMillis()}",
@@ -373,13 +439,11 @@ class AzoomaViewModel : ViewModel() {
             isDeduction = false
         )
         _uiState.update {
-            it.copy(
-                walletBalance = it.walletBalance + amount,
-                walletTransactions = listOf(newTx) + it.walletTransactions,
-                showRechargeSheet = false
-            )
+            it.copy(walletBalance = it.walletBalance + amount, walletTransactions = listOf(newTx) + it.walletTransactions, showRechargeSheet = false)
         }
     }
+
+    // ── Misc UI ───────────────────────────────────────────────────────────────
 
     fun toggleFavorite(storeId: String) {
         _uiState.update { state ->
@@ -389,9 +453,7 @@ class AzoomaViewModel : ViewModel() {
         }
     }
 
-    fun updateSearchQuery(query: String) {
-        _uiState.update { it.copy(searchQuery = query) }
-    }
+    fun updateSearchQuery(query: String) { _uiState.update { it.copy(searchQuery = query) } }
 
     fun addRecentSearch(query: String) {
         if (query.isBlank()) return
@@ -402,50 +464,29 @@ class AzoomaViewModel : ViewModel() {
     }
 
     fun removeRecentSearch(query: String) {
-        _uiState.update { state ->
-            state.copy(recentSearches = state.recentSearches.filterNot { it == query })
-        }
+        _uiState.update { state -> state.copy(recentSearches = state.recentSearches.filterNot { it == query }) }
     }
 
     fun trackOrder(order: Order) {
-        _uiState.update {
-            it.copy(
-                activeTrackingOrder = order,
-                currentSubScreen = SubScreen.ORDER_TRACKING
-            )
-        }
+        _uiState.update { it.copy(activeTrackingOrder = order, currentSubScreen = SubScreen.ORDER_TRACKING) }
     }
 
     fun reorder(order: Order) {
-        // Find store and add sample items
-        val store = SampleData.stores.find { it.name.contains(order.storeName) } ?: SampleData.stores.first()
-        val itemsToAdd = SampleData.menuItems.take(2)
-        _uiState.update { state ->
-            state.copy(
-                cartState = CartState(
-                    items = itemsToAdd.map { CartItem(it, 1) },
-                    storeId = store.id,
-                    storeName = store.name
-                ),
-                currentTab = BottomTab.CART,
-                currentSubScreen = SubScreen.NONE
-            )
+        val store = _uiState.value.stores.find { it.name.contains(order.storeName) }
+        if (store != null) {
+            _uiState.update { state ->
+                state.copy(selectedStore = store, currentSubScreen = SubScreen.STORE_PROFILE, currentTab = BottomTab.HOME)
+            }
         }
     }
 
-    // Authentication methods
-    fun startRegister() {
-        _uiState.update { it.copy(showAuthSheet = true, authMode = "REGISTER") }
-    }
+    // ── Auth sheet helpers ────────────────────────────────────────────────────
 
-    fun startLogin() {
-        _uiState.update { it.copy(showAuthSheet = true, authMode = "LOGIN") }
-    }
+    fun startRegister() { _uiState.update { it.copy(showAuthSheet = true, authMode = "REGISTER") } }
+    fun startLogin() { _uiState.update { it.copy(showAuthSheet = true, authMode = "LOGIN") } }
+    fun dismissAuthSheet() { _uiState.update { it.copy(showAuthSheet = false, authError = null) } }
 
-    fun dismissAuthSheet() {
-        _uiState.update { it.copy(showAuthSheet = false) }
-    }
-
+    /** Legacy path — used when Firebase Auth is not yet wired up in the UI */
     fun authenticateUser(name: String, phone: String) {
         _uiState.update {
             it.copy(
@@ -473,10 +514,12 @@ class AzoomaViewModel : ViewModel() {
     }
 
     fun logout() {
+        _idToken = null
         _uiState.update {
             it.copy(
                 isAuthenticated = false,
                 showLogoutDialog = false,
+                userSession = null,
                 currentTab = BottomTab.HOME,
                 currentSubScreen = SubScreen.NONE
             )

@@ -36,74 +36,23 @@ import androidx.compose.ui.unit.sp
 import coil.compose.AsyncImage
 import coil.request.ImageRequest
 import com.example.R
-import com.example.data.SampleData
+import com.example.model.AppBanner
+import com.example.model.AppCategory
 import com.example.model.Store
-import com.example.model.StoreCategory
 import com.example.ui.components.TopLocationBar
 import com.example.ui.theme.*
-
-private data class PromoBannerData(
-    val id: String,
-    val title: String,
-    val subtitle: String,
-    val badge: String,
-    val buttonText: String,
-    val imageUrl: String,
-    val gradientColors: List<Color>,
-    val targetStoreId: String
-)
-
-private val promoBannersList = listOf(
-    PromoBannerData(
-        id = "banner_1",
-        title = "وجباتك المفضلة\nتصلك بسرعة فائقة 🛵",
-        subtitle = "خصم 20% على أول طلب في التطبيق",
-        badge = "عرض الأسبوع",
-        buttonText = "اطلب الآن",
-        imageUrl = "https://images.unsplash.com/photo-1504674900247-0877df9cc836?w=800&auto=format&fit=crop&q=80",
-        gradientColors = listOf(Color(0xE60E2A47), Color(0xCCFF4800)),
-        targetStoreId = "shnabo"
-    ),
-    PromoBannerData(
-        id = "banner_2",
-        title = "عروض الجمعة للمشاوي 🥩\nأشهى المأكولات على الفحم",
-        subtitle = "كباب وشاورما طازجة ولذيذة",
-        badge = "خصم 30% 🔥",
-        buttonText = "استكشف المشاوي",
-        imageUrl = "https://images.unsplash.com/photo-1555939594-58d7cb561ad1?w=800&auto=format&fit=crop&q=80",
-        gradientColors = listOf(Color(0xE65D1003), Color(0xCCFF5722)),
-        targetStoreId = "british_doner"
-    ),
-    PromoBannerData(
-        id = "banner_3",
-        title = "توصيل مجاني للبقالة 🛍️\nوسوبرماركت متكامل",
-        subtitle = "استخدم كود AZOOMA26 لطلبك",
-        badge = "توصيل 0 د.ل",
-        buttonText = "تسوق الآن",
-        imageUrl = "https://images.unsplash.com/photo-1542838132-92c53300491e?w=800&auto=format&fit=crop&q=80",
-        gradientColors = listOf(Color(0xE6003B2E), Color(0xCC00897B)),
-        targetStoreId = "albaron"
-    ),
-    PromoBannerData(
-        id = "banner_4",
-        title = "أحلى قهوة وحلويات ☕🍰\nمن أرقى كافيهات بنغازي",
-        subtitle = "اشرب قهوتك المفضلة واستمتع",
-        badge = "عرض 1+1 مجاناً",
-        buttonText = "اختر كافيهك",
-        imageUrl = "https://images.unsplash.com/photo-1509042239860-f550ce710b93?w=800&auto=format&fit=crop&q=80",
-        gradientColors = listOf(Color(0xE62D1914), Color(0xCC8D6E63)),
-        targetStoreId = "abu_hajar"
-    )
-)
 
 @OptIn(ExperimentalFoundationApi::class)
 @Composable
 fun HomeScreen(
     currentAddressName: String,
+    categories: List<AppCategory>,
+    stores: List<Store>,
+    banners: List<AppBanner>,
     onAddressClick: () -> Unit,
     onSearchClick: () -> Unit,
     onNotificationClick: () -> Unit,
-    onCategoryClick: (StoreCategory) -> Unit,
+    onCategoryClick: (AppCategory) -> Unit,
     onStoreClick: (Store) -> Unit,
     onViewAllOffersClick: () -> Unit,
     modifier: Modifier = Modifier
@@ -125,46 +74,47 @@ fun HomeScreen(
             )
         }
 
-        // 2. Horizontally scrollable Carousel of 4 Promotional Banners
-        item {
-            TopPromotionalCarousel(
-                banners = promoBannersList,
-                onBannerClick = { banner ->
-                    val store = SampleData.stores.find { it.id == banner.targetStoreId }
-                        ?: SampleData.stores.first()
-                    onStoreClick(store)
-                }
-            )
+        // 2. Promotional Banners Carousel (only shown when live data is available)
+        if (banners.isNotEmpty()) {
+            item {
+                TopPromotionalCarousel(
+                    banners = banners,
+                    onBannerClick = { banner ->
+                        if (banner.storeId != null) {
+                            val store = stores.find { it.id == banner.storeId }
+                            if (store != null) onStoreClick(store)
+                        }
+                    }
+                )
+            }
         }
 
-        // 3. Exactly 16 Categories arranged in 2 horizontally scrollable rows
-        item {
-            SectionHeader(
-                title = "الأقسام",
-                onSeeAllClick = null
-            )
-            HorizontalCategoriesSection(
-                categories = SampleData.categories,
-                onCategoryClick = onCategoryClick
-            )
+        // 3. Categories Section (only shown when live data is available)
+        if (categories.isNotEmpty()) {
+            item {
+                SectionHeader(title = "الأقسام", onSeeAllClick = null)
+                HorizontalCategoriesSection(
+                    categories = categories,
+                    onCategoryClick = onCategoryClick
+                )
+            }
         }
 
-        // 4. Directly jump to "الأعلى تقييماً" (Top Rated)
-        item {
-            SectionHeader(
-                title = "الأعلى تقييماً",
-                onSeeAllClick = null
-            )
-            TopRatedRow(onStoreClick = onStoreClick)
+        // 4. Top Rated Stores
+        if (stores.isNotEmpty()) {
+            item {
+                SectionHeader(title = "الأعلى تقييماً", onSeeAllClick = null)
+                TopRatedRow(stores = stores, onStoreClick = onStoreClick)
+            }
         }
 
-        // 5. "العروض" (Offers)
-        item {
-            SectionHeader(
-                title = "العروض 🏷️",
-                onSeeAllClick = onViewAllOffersClick
-            )
-            OffersRow(onStoreClick = onStoreClick)
+        // 5. Offers
+        val offerStores = stores.filter { it.hasOffer }
+        if (offerStores.isNotEmpty()) {
+            item {
+                SectionHeader(title = "العروض 🏷️", onSeeAllClick = onViewAllOffersClick)
+                OffersRow(offerStores = offerStores, onStoreClick = onStoreClick)
+            }
         }
     }
 }
@@ -175,8 +125,8 @@ fun HomeScreen(
 @OptIn(ExperimentalFoundationApi::class)
 @Composable
 private fun TopPromotionalCarousel(
-    banners: List<PromoBannerData>,
-    onBannerClick: (PromoBannerData) -> Unit
+    banners: List<AppBanner>,
+    onBannerClick: (AppBanner) -> Unit
 ) {
     val pagerState = rememberPagerState(pageCount = { banners.size })
 
@@ -231,7 +181,7 @@ private fun TopPromotionalCarousel(
 
 @Composable
 private fun PromoBannerCard(
-    banner: PromoBannerData,
+    banner: AppBanner,
     onClick: () -> Unit
 ) {
     Card(
@@ -243,99 +193,17 @@ private fun PromoBannerCard(
         elevation = CardDefaults.cardElevation(defaultElevation = 3.dp)
     ) {
         Box(modifier = Modifier.fillMaxSize()) {
-            // Food image background from Unsplash with fallback to local drawable
             AsyncImage(
                 model = ImageRequest.Builder(LocalContext.current)
-                    .data(banner.imageUrl)
+                    .data(banner.absoluteImageUrl)
                     .crossfade(true)
                     .placeholder(R.drawable.food_hero_banner)
                     .error(R.drawable.food_hero_banner)
                     .build(),
-                contentDescription = banner.title,
+                contentDescription = "Promo Banner",
                 contentScale = ContentScale.Crop,
                 modifier = Modifier.fillMaxSize()
             )
-
-            // Gradient Overlay for perfect readability
-            Box(
-                modifier = Modifier
-                    .fillMaxSize()
-                    .background(
-                        Brush.horizontalGradient(
-                            colors = banner.gradientColors + listOf(Color.Transparent)
-                        )
-                    )
-            )
-
-            // Discount Badge at Top-End
-            Surface(
-                modifier = Modifier
-                    .align(Alignment.TopEnd)
-                    .padding(12.dp),
-                shape = RoundedCornerShape(12.dp),
-                color = AzoomaOrange
-            ) {
-                Text(
-                    text = banner.badge,
-                    style = AppTypography.labelSmall.copy(
-                        color = Color.White,
-                        fontWeight = FontWeight.Bold,
-                        fontSize = 11.sp
-                    ),
-                    modifier = Modifier.padding(horizontal = 10.dp, vertical = 4.dp)
-                )
-            }
-
-            // Text and CTA Button
-            Column(
-                modifier = Modifier
-                    .fillMaxHeight()
-                    .padding(horizontal = 16.dp, vertical = 14.dp),
-                verticalArrangement = Arrangement.SpaceBetween,
-                horizontalAlignment = Alignment.Start
-            ) {
-                Column {
-                    Text(
-                        text = banner.title,
-                        style = AppTypography.titleMedium.copy(
-                            color = Color.White,
-                            fontWeight = FontWeight.Bold,
-                            fontSize = 17.sp,
-                            lineHeight = 22.sp
-                        ),
-                        maxLines = 2
-                    )
-
-                    Spacer(modifier = Modifier.height(4.dp))
-
-                    Text(
-                        text = banner.subtitle,
-                        style = AppTypography.bodySmall.copy(
-                            color = Color.White.copy(alpha = 0.85f),
-                            fontSize = 11.5.sp
-                        ),
-                        maxLines = 1
-                    )
-                }
-
-                Surface(
-                    modifier = Modifier
-                        .clip(RoundedCornerShape(20.dp)),
-                    color = Color.White.copy(alpha = 0.95f),
-                    shape = RoundedCornerShape(20.dp),
-                    shadowElevation = 2.dp
-                ) {
-                    Text(
-                        text = banner.buttonText,
-                        style = AppTypography.labelMedium.copy(
-                            color = AzoomaOrange,
-                            fontWeight = FontWeight.Bold,
-                            fontSize = 12.sp
-                        ),
-                        modifier = Modifier.padding(horizontal = 16.dp, vertical = 6.dp)
-                    )
-                }
-            }
         }
     }
 }
@@ -346,8 +214,8 @@ private fun PromoBannerCard(
  */
 @Composable
 private fun HorizontalCategoriesSection(
-    categories: List<StoreCategory>,
-    onCategoryClick: (StoreCategory) -> Unit
+    categories: List<AppCategory>,
+    onCategoryClick: (AppCategory) -> Unit
 ) {
     val allSixteen = categories.take(16)
     val row1 = allSixteen.take(8)
@@ -401,7 +269,7 @@ private fun HorizontalCategoriesSection(
 
 @Composable
 private fun CategoryItemCard(
-    category: StoreCategory,
+    category: AppCategory,
     itemWidth: androidx.compose.ui.unit.Dp,
     onClick: () -> Unit
 ) {
@@ -425,10 +293,23 @@ private fun CategoryItemCard(
                 contentAlignment = Alignment.Center,
                 modifier = Modifier.fillMaxSize()
             ) {
-                Text(
-                    text = category.iconEmoji,
-                    fontSize = 32.sp
-                )
+                val isEmoji = category.imageUrl.length <= 10 && !category.imageUrl.contains(".")
+                if (isEmoji) {
+                    Text(
+                        text = category.imageUrl,
+                        fontSize = 32.sp
+                    )
+                } else {
+                    AsyncImage(
+                        model = ImageRequest.Builder(LocalContext.current)
+                            .data(category.absoluteImageUrl)
+                            .crossfade(true)
+                            .build(),
+                        contentDescription = category.name,
+                        contentScale = ContentScale.Crop,
+                        modifier = Modifier.fillMaxSize()
+                    )
+                }
             }
         }
 
@@ -482,13 +363,13 @@ private fun SectionHeader(
 }
 
 @Composable
-private fun TopRatedRow(onStoreClick: (Store) -> Unit) {
+private fun TopRatedRow(stores: List<Store>, onStoreClick: (Store) -> Unit) {
     LazyRow(
         modifier = Modifier.fillMaxWidth(),
         contentPadding = PaddingValues(horizontal = 16.dp),
         horizontalArrangement = Arrangement.spacedBy(14.dp)
     ) {
-        items(SampleData.stores.take(4)) { store ->
+        items(stores.take(4)) { store ->
             Card(
                 modifier = Modifier
                     .width(220.dp)
@@ -506,8 +387,13 @@ private fun TopRatedRow(onStoreClick: (Store) -> Unit) {
                             .height(115.dp)
                             .background(Color(0xFF2B201B))
                     ) {
-                        Image(
-                            painter = painterResource(id = R.drawable.food_hero_banner),
+                        AsyncImage(
+                            model = ImageRequest.Builder(LocalContext.current)
+                                .data(store.absoluteLogoUrl)
+                                .crossfade(true)
+                                .placeholder(R.drawable.food_hero_banner)
+                                .error(R.drawable.food_hero_banner)
+                                .build(),
                             contentDescription = store.name,
                             contentScale = ContentScale.Crop,
                             modifier = Modifier.fillMaxSize()
@@ -586,8 +472,7 @@ private fun TopRatedRow(onStoreClick: (Store) -> Unit) {
 }
 
 @Composable
-private fun OffersRow(onStoreClick: (Store) -> Unit) {
-    val offerStores = SampleData.stores.filter { it.hasOffer }
+private fun OffersRow(offerStores: List<Store>, onStoreClick: (Store) -> Unit) {
     LazyRow(
         modifier = Modifier.fillMaxWidth(),
         contentPadding = PaddingValues(horizontal = 16.dp),
@@ -609,8 +494,13 @@ private fun OffersRow(onStoreClick: (Store) -> Unit) {
                             .fillMaxWidth()
                             .height(120.dp)
                     ) {
-                        Image(
-                            painter = painterResource(id = R.drawable.food_hero_banner),
+                        AsyncImage(
+                            model = ImageRequest.Builder(LocalContext.current)
+                                .data(store.absoluteLogoUrl)
+                                .crossfade(true)
+                                .placeholder(R.drawable.food_hero_banner)
+                                .error(R.drawable.food_hero_banner)
+                                .build(),
                             contentDescription = store.name,
                             contentScale = ContentScale.Crop,
                             modifier = Modifier.fillMaxSize()

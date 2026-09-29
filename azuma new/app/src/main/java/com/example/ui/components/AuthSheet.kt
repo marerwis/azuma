@@ -1,5 +1,6 @@
 package com.example.ui.components
 
+import android.app.Activity
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.layout.*
@@ -13,6 +14,7 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.input.KeyboardType
@@ -21,19 +23,148 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.example.ui.screens.LibyanFlagIcon
 import com.example.ui.theme.*
+import com.google.firebase.FirebaseException
+import com.google.firebase.auth.FirebaseAuth
+import com.google.firebase.auth.FirebaseAuthInvalidCredentialsException
+import com.google.firebase.auth.PhoneAuthCredential
+import com.google.firebase.auth.PhoneAuthOptions
+import com.google.firebase.auth.PhoneAuthProvider
+import java.util.concurrent.TimeUnit
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun AuthSheet(
     isRegister: Boolean,
     onDismiss: () -> Unit,
-    onSuccess: (name: String, phone: String) -> Unit
+    /** Called with (idToken, fullName) after Firebase verifies the OTP and we have a JWT */
+    onSuccess: (idToken: String, fullName: String) -> Unit
 ) {
-    var step by remember { mutableIntStateOf(1) } // 1 = Phone input, 2 = OTP verification
-    var fullName by remember { mutableStateOf("مرعي زلاوي") }
-    var phoneNumber by remember { mutableStateOf("0914333564") }
-    var otpCode by remember { mutableStateOf("4892") }
+    val context = LocalContext.current
+    val activity = context as? Activity
 
+    // ── State ──────────────────────────────────────────────────────────────
+    var step by remember { mutableIntStateOf(1) }   // 1 = Phone, 2 = OTP
+    var fullName by remember { mutableStateOf("") }
+    var phoneNumber by remember { mutableStateOf("") }
+    var otpCode by remember { mutableStateOf("") }
+
+    // Firebase phone auth state
+    var verificationId by remember { mutableStateOf<String?>(null) }
+    var resendToken by remember { mutableStateOf<PhoneAuthProvider.ForceResendingToken?>(null) }
+    var isLoading by remember { mutableStateOf(false) }
+    var errorMessage by remember { mutableStateOf<String?>(null) }
+
+    // ── Firebase Phone Auth callbacks ──────────────────────────────────────
+    val callbacks = remember {
+        object : PhoneAuthProvider.OnVerificationStateChangedCallbacks() {
+
+            // Auto-retrieval or instant verification (e.g. same device that sent SMS)
+            override fun onVerificationCompleted(credential: PhoneAuthCredential) {
+                isLoading = true
+                errorMessage = null
+                FirebaseAuth.getInstance()
+                    .signInWithCredential(credential)
+                    .addOnSuccessListener { result ->
+                        result.user?.getIdToken(true)
+                            ?.addOnSuccessListener { tokenResult ->
+                                isLoading = false
+                                tokenResult.token?.let { token ->
+                                    onSuccess(token, fullName)
+                                }
+                            }
+                            ?.addOnFailureListener { e ->
+                                isLoading = false
+                                errorMessage = "فشل الحصول على التوكن: ${e.localizedMessage}"
+                            }
+                    }
+                    .addOnFailureListener { e ->
+                        isLoading = false
+                        errorMessage = "فشل التحقق التلقائي: ${e.localizedMessage}"
+                    }
+            }
+
+            override fun onVerificationFailed(e: FirebaseException) {
+                isLoading = false
+                errorMessage = when (e) {
+                    is FirebaseAuthInvalidCredentialsException -> "رقم الهاتف غير صالح"
+                    else -> "فشل إرسال الرمز: ${e.localizedMessage}"
+                }
+            }
+
+            override fun onCodeSent(
+                id: String,
+                token: PhoneAuthProvider.ForceResendingToken
+            ) {
+                isLoading = false
+                verificationId = id
+                resendToken = token
+                step = 2
+            }
+        }
+    }
+
+    // ── Helper: send SMS OTP ───────────────────────────────────────────────
+    fun sendOtp(forceResend: Boolean = false) {
+        if (activity == null) {
+            errorMessage = "خطأ في التطبيق: لا يمكن إطلاق المصادقة"
+            return
+        }
+        val phone = "+218${phoneNumber.trimStart('0')}"
+        isLoading = true
+        errorMessage = null
+
+        val optionsBuilder = PhoneAuthOptions.newBuilder(FirebaseAuth.getInstance())
+            .setPhoneNumber(phone)
+            .setTimeout(60L, TimeUnit.SECONDS)
+            .setActivity(activity)
+            .setCallbacks(callbacks)
+
+        if (forceResend && resendToken != null) {
+            optionsBuilder.setForceResendingToken(resendToken!!)
+        }
+
+        PhoneAuthProvider.verifyPhoneNumber(optionsBuilder.build())
+    }
+
+    // ── Helper: verify OTP manually ────────────────────────────────────────
+    fun verifyOtp() {
+        val vid = verificationId ?: run {
+            errorMessage = "انتهت الجلسة، أعد إرسال الرمز"
+            return
+        }
+        if (otpCode.length != 6) {
+            errorMessage = "الرمز يجب أن يتكون من 6 أرقام"
+            return
+        }
+        isLoading = true
+        errorMessage = null
+
+        val credential = PhoneAuthProvider.getCredential(vid, otpCode)
+        FirebaseAuth.getInstance()
+            .signInWithCredential(credential)
+            .addOnSuccessListener { result ->
+                result.user?.getIdToken(true)
+                    ?.addOnSuccessListener { tokenResult ->
+                        isLoading = false
+                        tokenResult.token?.let { token ->
+                            onSuccess(token, fullName)
+                        } ?: run { errorMessage = "لم يتم إصدار التوكن" }
+                    }
+                    ?.addOnFailureListener { e ->
+                        isLoading = false
+                        errorMessage = "فشل الحصول على التوكن: ${e.localizedMessage}"
+                    }
+            }
+            .addOnFailureListener { e ->
+                isLoading = false
+                errorMessage = when (e) {
+                    is FirebaseAuthInvalidCredentialsException -> "رمز التحقق غير صحيح"
+                    else -> "فشل التحقق: ${e.localizedMessage}"
+                }
+            }
+    }
+
+    // ── UI ─────────────────────────────────────────────────────────────────
     ModalBottomSheet(
         onDismissRequest = onDismiss,
         sheetState = rememberModalBottomSheetState(skipPartiallyExpanded = true),
@@ -57,6 +188,7 @@ fun AuthSheet(
                 .navigationBarsPadding(),
             horizontalAlignment = Alignment.CenterHorizontally
         ) {
+            // ── Title ──────────────────────────────────────────────────────
             Text(
                 text = if (isRegister) "تسجيل حساب جديد" else "تسجيل الدخول",
                 style = AppTypography.headlineSmall.copy(
@@ -68,7 +200,10 @@ fun AuthSheet(
             Spacer(modifier = Modifier.height(6.dp))
 
             Text(
-                text = if (step == 1) "أدخل رقم هاتفك لاستلام رمز التحقق وتأكيد حسابك" else "تم إرسال رمز التحقق إلى $phoneNumber",
+                text = if (step == 1)
+                    "أدخل رقم هاتفك لاستلام رمز التحقق وتأكيد حسابك"
+                else
+                    "تم إرسال رمز التحقق إلى +218${phoneNumber.trimStart('0')}",
                 style = AppTypography.bodySmall.copy(
                     color = AzoomaTextSecondary,
                     textAlign = TextAlign.Center
@@ -77,6 +212,24 @@ fun AuthSheet(
 
             Spacer(modifier = Modifier.height(20.dp))
 
+            // ── Error Banner ───────────────────────────────────────────────
+            if (errorMessage != null) {
+                Surface(
+                    modifier = Modifier.fillMaxWidth(),
+                    color = Color(0xFFFFEDED),
+                    shape = RoundedCornerShape(10.dp)
+                ) {
+                    Text(
+                        text = errorMessage!!,
+                        modifier = Modifier.padding(12.dp),
+                        style = AppTypography.bodySmall.copy(color = Color(0xFFB00020)),
+                        textAlign = TextAlign.Center
+                    )
+                }
+                Spacer(modifier = Modifier.height(12.dp))
+            }
+
+            // ── Step 1: Phone Input ────────────────────────────────────────
             if (step == 1) {
                 if (isRegister) {
                     OutlinedTextField(
@@ -96,10 +249,9 @@ fun AuthSheet(
                     Spacer(modifier = Modifier.height(14.dp))
                 }
 
-                // Phone input with Libyan flag
                 OutlinedTextField(
                     value = phoneNumber,
-                    onValueChange = { phoneNumber = it },
+                    onValueChange = { if (it.all(Char::isDigit) && it.length <= 10) phoneNumber = it },
                     label = { Text("رقم الهاتف") },
                     leadingIcon = {
                         Row(
@@ -132,7 +284,8 @@ fun AuthSheet(
                 Spacer(modifier = Modifier.height(24.dp))
 
                 Button(
-                    onClick = { step = 2 },
+                    onClick = { sendOtp() },
+                    enabled = !isLoading && phoneNumber.length >= 9,
                     modifier = Modifier
                         .fillMaxWidth()
                         .height(52.dp)
@@ -140,20 +293,29 @@ fun AuthSheet(
                     shape = RoundedCornerShape(14.dp),
                     colors = ButtonDefaults.buttonColors(containerColor = AzoomaOrange)
                 ) {
-                    Text(
-                        text = "إرسال رمز التحقق",
-                        style = AppTypography.titleMedium.copy(
+                    if (isLoading) {
+                        CircularProgressIndicator(
+                            modifier = Modifier.size(22.dp),
                             color = Color.White,
-                            fontWeight = FontWeight.Bold
+                            strokeWidth = 2.dp
                         )
-                    )
+                    } else {
+                        Text(
+                            text = "إرسال رمز التحقق",
+                            style = AppTypography.titleMedium.copy(
+                                color = Color.White,
+                                fontWeight = FontWeight.Bold
+                            )
+                        )
+                    }
                 }
+
             } else {
-                // Step 2: OTP Verification
+                // ── Step 2: OTP Verification ───────────────────────────────
                 OutlinedTextField(
                     value = otpCode,
-                    onValueChange = { if (it.length <= 4) otpCode = it },
-                    label = { Text("رمز التحقق (OTP)") },
+                    onValueChange = { if (it.all(Char::isDigit) && it.length <= 6) otpCode = it },
+                    label = { Text("رمز التحقق (6 أرقام)") },
                     keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number),
                     modifier = Modifier
                         .fillMaxWidth()
@@ -168,21 +330,21 @@ fun AuthSheet(
 
                 Spacer(modifier = Modifier.height(10.dp))
 
-                Text(
-                    text = "لم يصلك الرمز؟ إعادة الإرسال خلال 30 ثانية",
-                    style = AppTypography.bodySmall.copy(
-                        color = AzoomaTextSecondary,
-                        fontSize = 11.sp
+                TextButton(onClick = { sendOtp(forceResend = true) }, enabled = !isLoading) {
+                    Text(
+                        text = "لم يصلك الرمز؟ إعادة الإرسال",
+                        style = AppTypography.bodySmall.copy(
+                            color = AzoomaOrange,
+                            fontSize = 12.sp
+                        )
                     )
-                )
+                }
 
-                Spacer(modifier = Modifier.height(24.dp))
+                Spacer(modifier = Modifier.height(16.dp))
 
                 Button(
-                    onClick = {
-                        val finalPhone = if (phoneNumber.startsWith("+218")) phoneNumber else "+218-$phoneNumber"
-                        onSuccess(fullName, finalPhone)
-                    },
+                    onClick = { verifyOtp() },
+                    enabled = !isLoading && otpCode.length == 6,
                     modifier = Modifier
                         .fillMaxWidth()
                         .height(52.dp)
@@ -190,13 +352,21 @@ fun AuthSheet(
                     shape = RoundedCornerShape(14.dp),
                     colors = ButtonDefaults.buttonColors(containerColor = AzoomaOrange)
                 ) {
-                    Text(
-                        text = "تأكيد والدخول للبرنامج",
-                        style = AppTypography.titleMedium.copy(
+                    if (isLoading) {
+                        CircularProgressIndicator(
+                            modifier = Modifier.size(22.dp),
                             color = Color.White,
-                            fontWeight = FontWeight.Bold
+                            strokeWidth = 2.dp
                         )
-                    )
+                    } else {
+                        Text(
+                            text = "تأكيد والدخول للبرنامج",
+                            style = AppTypography.titleMedium.copy(
+                                color = Color.White,
+                                fontWeight = FontWeight.Bold
+                            )
+                        )
+                    }
                 }
             }
 

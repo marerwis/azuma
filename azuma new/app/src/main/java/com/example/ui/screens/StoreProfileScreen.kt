@@ -22,14 +22,17 @@ import androidx.compose.ui.draw.shadow
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.platform.testTag
+import androidx.compose.ui.platform.LocalContext
+import coil.compose.AsyncImage
+import coil.request.ImageRequest
 import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.example.R
-import com.example.data.SampleData
 import com.example.model.CartState
+import com.example.model.MenuCategoryWithProducts
 import com.example.model.MenuItem
 import com.example.model.Store
 import com.example.ui.theme.*
@@ -37,6 +40,8 @@ import com.example.ui.theme.*
 @Composable
 fun StoreProfileScreen(
     store: Store,
+    storeMenu: List<MenuCategoryWithProducts>,   // nested: category → [products]
+    isLoadingMenu: Boolean,
     cartState: CartState,
     isFavorite: Boolean,
     onToggleFavorite: () -> Unit,
@@ -48,16 +53,49 @@ fun StoreProfileScreen(
 ) {
     var isDeliveryMode by remember { mutableStateOf(true) }
     var searchQuery by remember { mutableStateOf("") }
-    var selectedCategoryTab by remember { mutableStateOf("شاورما") }
 
-    val storeCategories = listOf("شاورما", "ساندوتشات مشاوي", "ساندوتشات", "برجر")
-    val allItems = SampleData.menuItems.filter { it.storeId == store.id || store.id == "shnabo" }
-    val filteredItems = allItems.filter { item ->
-        (item.category == selectedCategoryTab || selectedCategoryTab == "الكل") &&
-                (searchQuery.isBlank() || item.name.contains(searchQuery) || item.description.contains(searchQuery))
+    // Drive tabs directly from the real DB category names
+    val activeCategories = storeMenu.filter { it.isActive }
+    val storeCategories = activeCategories.map { it.name }
+    var selectedCategoryTab by remember(storeCategories) {
+        mutableStateOf(storeCategories.firstOrNull() ?: "")
+    }
+
+    // Find the currently selected category object
+    val selectedCategory = activeCategories.find { it.name == selectedCategoryTab }
+
+    // Get all items in the store across all categories (for "Most Popular" row)
+    val allItems = storeMenu.flatMap { it.products }
+
+    // Filter: items in the selected category that match the search query
+    val filteredItems = if (selectedCategory != null) {
+        selectedCategory.products.filter { item ->
+            searchQuery.isBlank() ||
+                    item.name.contains(searchQuery, ignoreCase = true) ||
+                    item.description.contains(searchQuery, ignoreCase = true)
+        }
+    } else {
+        // If no category selected yet, show all items matching search
+        allItems.filter { item ->
+            searchQuery.isBlank() ||
+                    item.name.contains(searchQuery, ignoreCase = true) ||
+                    item.description.contains(searchQuery, ignoreCase = true)
+        }
     }
 
     Box(modifier = modifier.fillMaxSize()) {
+
+        // ── Loading overlay while menu_categories + products are fetching ────────
+        if (isLoadingMenu && storeMenu.isEmpty()) {
+            Box(
+                modifier = Modifier.fillMaxSize().background(AzoomaBackground),
+                contentAlignment = androidx.compose.ui.Alignment.Center
+            ) {
+                androidx.compose.material3.CircularProgressIndicator(color = AzoomaOrange)
+            }
+            return@Box
+        }
+
         LazyColumn(
             modifier = Modifier
                 .fillMaxSize()
@@ -71,8 +109,13 @@ fun StoreProfileScreen(
                         .fillMaxWidth()
                         .height(200.dp)
                 ) {
-                    Image(
-                        painter = painterResource(id = R.drawable.food_hero_banner),
+                    AsyncImage(
+                        model = ImageRequest.Builder(LocalContext.current)
+                            .data(store.absoluteLogoUrl)
+                            .crossfade(true)
+                            .placeholder(R.drawable.food_hero_banner)
+                            .error(R.drawable.food_hero_banner)
+                            .build(),
                         contentDescription = "غلاف المطعم",
                         contentScale = ContentScale.Crop,
                         modifier = Modifier.fillMaxSize()
@@ -424,7 +467,7 @@ fun StoreProfileScreen(
                     modifier = Modifier.padding(horizontal = 20.dp, vertical = 4.dp)
                 )
 
-                val popularItems = allItems.filter { it.isPopular }
+                val popularItems = allItems.filter { it.isPopular }.ifEmpty { allItems.take(5) }
                 LazyRow(
                     modifier = Modifier.fillMaxWidth(),
                     contentPadding = PaddingValues(horizontal = 16.dp),
@@ -446,8 +489,13 @@ fun StoreProfileScreen(
                                         .height(85.dp)
                                         .clip(RoundedCornerShape(12.dp))
                                 ) {
-                                    Image(
-                                        painter = painterResource(id = R.drawable.food_hero_banner),
+                                    AsyncImage(
+                                        model = ImageRequest.Builder(LocalContext.current)
+                                            .data(item.absoluteImageUrl)
+                                            .crossfade(true)
+                                            .placeholder(R.drawable.food_hero_banner)
+                                            .error(R.drawable.food_hero_banner)
+                                            .build(),
                                         contentDescription = item.name,
                                         contentScale = ContentScale.Crop,
                                         modifier = Modifier.fillMaxSize()
@@ -581,8 +629,13 @@ fun StoreProfileScreen(
                                 .size(90.dp)
                                 .clip(RoundedCornerShape(14.dp))
                         ) {
-                            Image(
-                                painter = painterResource(id = R.drawable.food_hero_banner),
+                            AsyncImage(
+                                model = ImageRequest.Builder(LocalContext.current)
+                                    .data(menuItem.absoluteImageUrl)
+                                    .crossfade(true)
+                                    .placeholder(R.drawable.food_hero_banner)
+                                    .error(R.drawable.food_hero_banner)
+                                    .build(),
                                 contentDescription = menuItem.name,
                                 contentScale = ContentScale.Crop,
                                 modifier = Modifier.fillMaxSize()
