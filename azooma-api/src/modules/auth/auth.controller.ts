@@ -5,10 +5,22 @@ import { z } from 'zod';
 // ---------------------------------------------------------------------------
 // Validation schema for the request body
 // ---------------------------------------------------------------------------
-const verifyBodySchema = z.object({
-  idToken: z.string().min(1, 'idToken is required'),
-  fcmToken: z.string().optional(),
-});
+// Accepts both camelCase (Android Moshi) and snake_case (legacy clients)
+const verifyBodySchema = z
+  .object({
+    idToken:  z.string().optional(),
+    id_token: z.string().optional(),
+    fcmToken:  z.string().optional(),
+    fcm_token: z.string().optional(),
+    fullName:  z.string().optional(),
+    full_name: z.string().optional(),
+  })
+  .transform((data) => ({
+    idToken:  data.idToken  ?? data.id_token,
+    fcmToken: data.fcmToken ?? data.fcm_token,
+    fullName: data.fullName ?? data.full_name,
+  }))
+  .refine((data) => !!data.idToken, { message: 'idToken is required' });
 
 // ---------------------------------------------------------------------------
 // POST /api/v1/auth/verify
