@@ -30,7 +30,13 @@ import com.google.firebase.auth.PhoneAuthCredential
 import com.google.firebase.auth.PhoneAuthOptions
 import com.google.firebase.auth.PhoneAuthProvider
 import java.util.concurrent.TimeUnit
-
+import androidx.credentials.CredentialManager
+import androidx.credentials.GetCredentialRequest
+import androidx.credentials.exceptions.GetCredentialException
+import com.google.android.libraries.identity.googleid.GetGoogleIdOption
+import com.google.android.libraries.identity.googleid.GoogleIdTokenCredential
+import kotlinx.coroutines.launch
+import com.google.firebase.auth.GoogleAuthProvider
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun AuthSheet(
@@ -41,6 +47,11 @@ fun AuthSheet(
 ) {
     val context = LocalContext.current
     val activity = context as? Activity
+    val coroutineScope = rememberCoroutineScope()
+    val credentialManager = remember { CredentialManager.create(context) }
+    
+    // Web Client ID from Firebase
+    val WEB_CLIENT_ID = "887113361534-lfgdb3h2uld9e5jm6i0v3lsf2r6ahh08.apps.googleusercontent.com"
 
     // ── State ──────────────────────────────────────────────────────────────
     var step by remember { mutableIntStateOf(1) }   // 1 = Phone, 2 = OTP
@@ -162,6 +173,72 @@ fun AuthSheet(
                     else -> "فشل التحقق: ${e.localizedMessage}"
                 }
             }
+    }
+
+    // ── Helper: Google Sign-In ─────────────────────────────────────────────
+    fun signInWithGoogle() {
+        if (activity == null) {
+            errorMessage = "خطأ في التطبيق"
+            return
+        }
+        isLoading = true
+        errorMessage = null
+
+        val googleIdOption = GetGoogleIdOption.Builder()
+            .setFilterByAuthorizedAccounts(false)
+            .setServerClientId(WEB_CLIENT_ID)
+            .setAutoSelectEnabled(false)
+            .build()
+
+        val request = GetCredentialRequest.Builder()
+            .addCredentialOption(googleIdOption)
+            .build()
+
+        coroutineScope.launch {
+            try {
+                val result = credentialManager.getCredential(
+                    request = request,
+                    context = activity
+                )
+                val credential = result.credential
+                
+                if (credential is androidx.credentials.CustomCredential &&
+                    credential.type == GoogleIdTokenCredential.TYPE_GOOGLE_ID_TOKEN_CREDENTIAL) {
+                    
+                    val googleIdTokenCredential = GoogleIdTokenCredential.createFrom(credential.data)
+                    val idToken = googleIdTokenCredential.idToken
+                    
+                    // Authenticate with Firebase using this Google Token
+                    val firebaseCredential = GoogleAuthProvider.getCredential(idToken, null)
+                    FirebaseAuth.getInstance().signInWithCredential(firebaseCredential)
+                        .addOnSuccessListener { authResult ->
+                            authResult.user?.getIdToken(true)?.addOnSuccessListener { tokenResult ->
+                                isLoading = false
+                                tokenResult.token?.let { token ->
+                                    val fallbackName = authResult.user?.displayName ?: "مستخدم"
+                                    onSuccess(token, fallbackName)
+                                } ?: run { errorMessage = "لم يتم إصدار التوكن" }
+                            }?.addOnFailureListener { e ->
+                                isLoading = false
+                                errorMessage = "فشل الحصول على التوكن: ${e.localizedMessage}"
+                            }
+                        }
+                        .addOnFailureListener { e ->
+                            isLoading = false
+                            errorMessage = "فشل تسجيل الدخول عبر Google: ${e.localizedMessage}"
+                        }
+                } else {
+                    isLoading = false
+                    errorMessage = "نوع اعتماد غير متوقع"
+                }
+            } catch (e: GetCredentialException) {
+                isLoading = false
+                errorMessage = "تم إلغاء أو فشل تسجيل الدخول: ${e.localizedMessage}"
+            } catch (e: Exception) {
+                isLoading = false
+                errorMessage = "حدث خطأ غير متوقع: ${e.localizedMessage}"
+            }
+        }
     }
 
     // ── UI ─────────────────────────────────────────────────────────────────
@@ -308,6 +385,37 @@ fun AuthSheet(
                             )
                         )
                     }
+                }
+
+                Spacer(modifier = Modifier.height(16.dp))
+                Row(verticalAlignment = Alignment.CenterVertically, modifier = Modifier.fillMaxWidth()) {
+                    HorizontalDivider(modifier = Modifier.weight(1f), color = AzoomaCardBorder)
+                    Text(
+                        text = "أو",
+                        style = AppTypography.bodySmall.copy(color = AzoomaTextSecondary),
+                        modifier = Modifier.padding(horizontal = 12.dp)
+                    )
+                    HorizontalDivider(modifier = Modifier.weight(1f), color = AzoomaCardBorder)
+                }
+                Spacer(modifier = Modifier.height(16.dp))
+
+                Button(
+                    onClick = { signInWithGoogle() },
+                    enabled = !isLoading,
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .height(52.dp)
+                        .testTag("auth_google_btn"),
+                    shape = RoundedCornerShape(14.dp),
+                    colors = ButtonDefaults.buttonColors(containerColor = Color.White, contentColor = Color.Black),
+                    border = androidx.compose.foundation.BorderStroke(1.dp, AzoomaCardBorder)
+                ) {
+                    Text(
+                        text = "المتابعة باستخدام Google",
+                        style = AppTypography.titleMedium.copy(
+                            fontWeight = FontWeight.Bold
+                        )
+                    )
                 }
 
             } else {

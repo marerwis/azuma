@@ -14,9 +14,8 @@ import java.util.concurrent.TimeUnit
 // Base URL — swap to your production URL before release
 // ────────────────────────────────────────────────────────────────────────────
 // For Android Emulator: 10.0.2.2 maps to host machine localhost
-// For physical device:  use your machine's local LAN IP (e.g., 192.168.1.x:3000)
-// Using localtunnel for physical device testing with HTTPS
-private const val BASE_URL = "https://azooma-api.loca.lt/"
+// Using Production Render URL for physical device testing
+private const val BASE_URL = "https://azuma.onrender.com/"
 
 // ── Retrofit Service Interface ──────────────────────────────────────────────
 interface AzoomaApiService {
