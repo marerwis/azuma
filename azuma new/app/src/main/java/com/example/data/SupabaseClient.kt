@@ -5,6 +5,7 @@ import io.github.jan.supabase.createSupabaseClient
 import io.github.jan.supabase.auth.Auth
 import io.github.jan.supabase.postgrest.Postgrest
 import io.github.jan.supabase.storage.Storage
+import io.github.jan.supabase.realtime.Realtime
 
 import io.github.jan.supabase.serializer.KotlinXSerializer
 import kotlinx.serialization.json.Json
@@ -26,5 +27,6 @@ val supabase: SupabaseClient by lazy {
         }
         install(Auth)
         install(Storage)
+        install(Realtime)
     }
 }
