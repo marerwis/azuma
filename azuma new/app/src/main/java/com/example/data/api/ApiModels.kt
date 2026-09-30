@@ -36,6 +36,8 @@ data class UserDto(
 data class VerifyResponse(
     val success: Boolean,
     val user: UserDto? = null,
+    val isNewUser: Boolean? = null,
+    val supabaseToken: String? = null,
     val error: String? = null
 )
 

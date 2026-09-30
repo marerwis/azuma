@@ -31,6 +31,7 @@ class AzoomaRepository(private val api: AzoomaApiService) {
             val response = api.verifyToken(VerifyRequest(idToken, fcmToken, fullName))
             if (response.isSuccessful) {
                 val dto = response.body()?.user
+                val token = response.body()?.supabaseToken
                 if (dto != null) {
                     ApiResult.Success(
                         UserSession(
@@ -39,7 +40,8 @@ class AzoomaRepository(private val api: AzoomaApiService) {
                             fullName = dto.fullName ?: "",
                             phone = dto.phone,
                             role = dto.role,
-                            avatarUrl = dto.avatarUrl
+                            avatarUrl = dto.avatarUrl,
+                            supabaseToken = token
                         )
                     )
                 } else {

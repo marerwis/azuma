@@ -13,6 +13,14 @@ import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.launch
+import com.example.data.supabase
+import io.github.jan.supabase.auth.auth
+import io.github.jan.supabase.realtime.realtime
+import io.github.jan.supabase.realtime.channel
+import io.github.jan.supabase.realtime.postgresChangeFlow
+import io.github.jan.supabase.realtime.PostgresAction
+import kotlinx.coroutines.flow.onEach
+import kotlinx.coroutines.flow.launchIn
 
 enum class BottomTab {
     HOME,
@@ -178,6 +186,21 @@ class AzoomaViewModel : ViewModel() {
             when (val result = repository.verifyFirebaseToken(idToken, fcmToken, fullName)) {
                 is ApiResult.Success -> {
                     val session = result.data
+                    
+                    // Inject the custom backend JWT into Supabase so Realtime RLS works
+                    session.supabaseToken?.let { token ->
+                        try {
+                            supabase.auth.importAuthToken(
+                                accessToken = token,
+                                refreshToken = "",
+                                expiresIn = 3600 * 24 * 30L // 30 days
+                            )
+                            supabase.realtime.connect()
+                        } catch (e: Exception) {
+                            android.util.Log.e("ViewModel", "Failed to authenticate Supabase", e)
+                        }
+                    }
+
                     _uiState.update {
                         it.copy(
                             isAuthLoading = false,
@@ -469,6 +492,61 @@ class AzoomaViewModel : ViewModel() {
 
     fun trackOrder(order: Order) {
         _uiState.update { it.copy(activeTrackingOrder = order, currentSubScreen = SubScreen.ORDER_TRACKING) }
+        
+        // Only subscribe if we are authenticated with Supabase
+        if (_uiState.value.userSession?.supabaseToken != null) {
+            subscribeToOrderUpdates(order.id)
+        }
+    }
+
+    private fun subscribeToOrderUpdates(orderId: String) {
+        val channel = supabase.channel("order-$orderId")
+        val cleanOrderId = orderId.replace("ord_", "") // If orderId matches the UUID in DB
+        
+        channel.postgresChangeFlow<PostgresAction.Update>(schema = "public") {
+            table = "orders"
+            filter = "id=eq.$cleanOrderId"
+        }.onEach { change ->
+            val newStatus = change.record["status"]?.toString() ?: return@onEach
+            val mappedStatus = when (newStatus) {
+                "pending" -> OrderStatus.PENDING
+                "accepted" -> OrderStatus.PREPARING
+                "preparing" -> OrderStatus.PREPARING
+                "ready" -> OrderStatus.READY
+                "on_the_way" -> OrderStatus.ON_THE_WAY
+                "delivered" -> OrderStatus.DELIVERED
+                "cancelled" -> OrderStatus.CANCELLED
+                else -> OrderStatus.PENDING
+            }
+            
+            _uiState.update { state ->
+                val activeOrder = state.activeTrackingOrder
+                if (activeOrder != null && activeOrder.id == orderId) {
+                    val newProgress = when (mappedStatus) {
+                        OrderStatus.PENDING -> 0.1f
+                        OrderStatus.PREPARING -> 0.3f
+                        OrderStatus.READY -> 0.6f
+                        OrderStatus.ON_THE_WAY -> 0.8f
+                        OrderStatus.DELIVERED -> 1.0f
+                        OrderStatus.CANCELLED -> 0.0f
+                    }
+                    state.copy(
+                        activeTrackingOrder = activeOrder.copy(status = mappedStatus),
+                        trackingProgress = newProgress,
+                        trackingEtaMinutes = if (mappedStatus == OrderStatus.ON_THE_WAY) 10 else state.trackingEtaMinutes
+                    )
+                } else state
+            }
+        }.launchIn(viewModelScope)
+
+        viewModelScope.launch {
+            try {
+                channel.subscribe()
+                android.util.Log.d("Realtime", "Successfully subscribed to order: $orderId")
+            } catch (e: Exception) {
+                android.util.Log.e("Realtime", "Failed to subscribe", e)
+            }
+        }
     }
 
     fun reorder(order: Order) {

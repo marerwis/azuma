@@ -10,5 +10,6 @@ data class UserSession(
     val fullName: String,
     val phone: String?,
     val role: String,        // "customer" | "vendor" | "driver" | "admin"
-    val avatarUrl: String?
+    val avatarUrl: String?,
+    val supabaseToken: String?
 )
