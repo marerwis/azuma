@@ -55,6 +55,10 @@ interface AzoomaApiService {
     // ── Banners ───────────────────────────────────────────────────────
     @GET("api/v1/banners")
     suspend fun getBanners(): Response<ApiResponse<List<BannerDto>>>
+
+    // ── Orders ────────────────────────────────────────────────────────
+    @POST("api/v1/orders")
+    suspend fun createOrder(@Body request: CreateOrderRequest): Response<ApiResponse<OrderDto>>
 }
 
 // ── Auth Interceptor — injects Bearer token on every request ────────────────

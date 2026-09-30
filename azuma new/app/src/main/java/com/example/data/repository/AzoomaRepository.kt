@@ -185,5 +185,26 @@ class AzoomaRepository(private val api: AzoomaApiService) {
             ApiResult.Success(emptyList()) // non-fatal
         }
     }
+    
+    // ── Orders ────────────────────────────────────────────────────────────────
+    
+    suspend fun createOrder(request: com.example.data.api.CreateOrderRequest): ApiResult<com.example.data.api.OrderDto> {
+        return try {
+            val response = api.createOrder(request)
+            if (response.isSuccessful) {
+                val data = response.body()?.data
+                if (data != null) {
+                    ApiResult.Success(data)
+                } else {
+                    ApiResult.Error("Order created but no data returned")
+                }
+            } else {
+                ApiResult.Error("Order creation failed (${response.code()})", response.code())
+            }
+        } catch (e: Exception) {
+            Log.e(TAG, "createOrder error", e)
+            ApiResult.Error(e.message ?: "Network error")
+        }
+    }
 }
 

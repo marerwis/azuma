@@ -119,3 +119,35 @@ data class BannerDto(
     @Json(name = "store_id") val storeId: String? = null,
     @Json(name = "sort_order") val sortOrder: Int = 0
 )
+
+// ── Orders ────────────────────────────────────────────────────────
+@JsonClass(generateAdapter = true)
+data class OrderItemInput(
+    @Json(name = "product_id") val productId: String,
+    @Json(name = "variant_id") val variantId: String? = null,
+    val quantity: Int,
+    @Json(name = "unit_price") val unitPrice: Double,
+    @Json(name = "addon_ids") val addonIds: List<String>? = null
+)
+
+@JsonClass(generateAdapter = true)
+data class CreateOrderRequest(
+    @Json(name = "store_id") val storeId: String,
+    @Json(name = "coupon_id") val couponId: String? = null,
+    @Json(name = "delivery_address") val deliveryAddress: String,
+    @Json(name = "delivery_latitude") val deliveryLatitude: Double,
+    @Json(name = "delivery_longitude") val deliveryLongitude: Double,
+    @Json(name = "payment_method") val paymentMethod: String,
+    @Json(name = "special_instructions") val specialInstructions: String? = null,
+    val items: List<OrderItemInput>
+)
+
+@JsonClass(generateAdapter = true)
+data class OrderDto(
+    val id: String,
+    val status: String,
+    @Json(name = "subtotal") val subtotal: Double? = null,
+    @Json(name = "delivery_fee") val deliveryFee: Double? = null,
+    @Json(name = "total_amount") val totalAmount: Double? = null,
+    @Json(name = "created_at") val createdAt: String? = null
+)

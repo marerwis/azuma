@@ -438,56 +438,94 @@ class AzoomaViewModel(application: Application) : AndroidViewModel(application) 
     fun confirmOrder() {
         val cart = _uiState.value.cartState
         if (cart.items.isEmpty()) return
+        val storeId = cart.storeId ?: return
+        val address = _uiState.value.currentAddress
 
-        val orderNum = (10000000..99999999).random().toString()
-        val total = cart.grandTotal
-
-        if (_uiState.value.selectedPaymentType == PaymentType.WALLET) {
-            val newBalance = (_uiState.value.walletBalance - total).coerceAtLeast(0.0)
-            val newTx = WalletTransaction(
-                id = "tx_${System.currentTimeMillis()}",
-                title = "حجز قيمة ${total.toInt()} د.ل من محفظة الزبون للطلب رقم",
-                referenceNumber = "#$orderNum",
-                dateText = "الآن",
-                amount = total,
-                isDeduction = true
-            )
-            _uiState.update {
-                it.copy(walletBalance = newBalance, walletTransactions = listOf(newTx) + it.walletTransactions)
-            }
+        val paymentMethod = when (_uiState.value.selectedPaymentType) {
+            PaymentType.CASH -> "cash"
+            PaymentType.CARD -> "card"
+            PaymentType.WALLET -> "wallet"
         }
 
-        val newOrder = Order(
-            id = "ord_${System.currentTimeMillis()}",
-            orderNumber = orderNum,
-            storeName = cart.storeName.ifBlank { "المطعم" },
-            storeAddress = "بنغازي",
-            deliveryAddress = _uiState.value.currentAddress.name,
-            itemsSummary = cart.items.map { it.menuItem.name to it.quantity },
-            totalPrice = total,
-            dateText = "اليوم، الآن",
-            status = OrderStatus.ON_THE_WAY,
-            isStore = false,
-            estimatedArrivalMinutes = 18
+        val request = com.example.data.api.CreateOrderRequest(
+            storeId = storeId,
+            deliveryAddress = "${address.name}, ${address.details}",
+            deliveryLatitude = 32.115, // Hardcoded for now until maps integration
+            deliveryLongitude = 20.068, // Hardcoded for now until maps integration
+            paymentMethod = paymentMethod,
+            specialInstructions = cart.deliveryNote,
+            items = cart.items.map { item ->
+                com.example.data.api.OrderItemInput(
+                    productId = item.menuItem.id,
+                    quantity = item.quantity,
+                    unitPrice = item.menuItem.price
+                )
+            }
         )
-        val newNotif = NotificationItem(
-            id = "notif_${System.currentTimeMillis()}",
-            title = "تم تأكيد طلبك بنجاح! 🛵",
-            message = "طلبك رقم #${orderNum} قيد التحضير في ${newOrder.storeName}.",
-            timeAgo = "الآن",
-            isRead = false,
-            orderId = newOrder.id
-        )
-        _uiState.update {
-            it.copy(
-                orders = listOf(newOrder) + it.orders,
-                activeTrackingOrder = newOrder,
-                cartState = CartState(),
-                notifications = listOf(newNotif) + it.notifications,
-                currentSubScreen = SubScreen.ORDER_TRACKING,
-                trackingProgress = 0.25f,
-                trackingEtaMinutes = 18
-            )
+
+        viewModelScope.launch {
+            _uiState.update { it.copy(isLoadingData = true) }
+            when (val result = repository.createOrder(request)) {
+                is ApiResult.Success -> {
+                    val orderNum = result.data.id.takeLast(8) // Just for display
+                    val total = cart.grandTotal
+
+                    if (_uiState.value.selectedPaymentType == PaymentType.WALLET) {
+                        val newBalance = (_uiState.value.walletBalance - total).coerceAtLeast(0.0)
+                        val newTx = WalletTransaction(
+                            id = "tx_${System.currentTimeMillis()}",
+                            title = "حجز قيمة ${total.toInt()} د.ل من محفظة الزبون للطلب رقم",
+                            referenceNumber = "#$orderNum",
+                            dateText = "الآن",
+                            amount = total,
+                            isDeduction = true
+                        )
+                        _uiState.update {
+                            it.copy(walletBalance = newBalance, walletTransactions = listOf(newTx) + it.walletTransactions)
+                        }
+                    }
+
+                    val newOrder = Order(
+                        id = result.data.id,
+                        orderNumber = orderNum,
+                        storeName = cart.storeName.ifBlank { "المطعم" },
+                        storeAddress = "بنغازي",
+                        deliveryAddress = _uiState.value.currentAddress.name,
+                        itemsSummary = cart.items.map { it.menuItem.name to it.quantity },
+                        totalPrice = total,
+                        dateText = "اليوم، الآن",
+                        status = OrderStatus.ON_THE_WAY,
+                        isStore = false,
+                        estimatedArrivalMinutes = 18
+                    )
+                    
+                    val newNotif = NotificationItem(
+                        id = "notif_${System.currentTimeMillis()}",
+                        title = "تم تأكيد طلبك بنجاح! \uD83D\uDEF5",
+                        message = "طلبك رقم #${orderNum} قيد التحضير في ${newOrder.storeName}.",
+                        timeAgo = "الآن",
+                        isRead = false,
+                        orderId = newOrder.id
+                    )
+                    
+                    _uiState.update {
+                        it.copy(
+                            isLoadingData = false,
+                            orders = listOf(newOrder) + it.orders,
+                            activeTrackingOrder = newOrder,
+                            cartState = CartState(),
+                            notifications = listOf(newNotif) + it.notifications,
+                            currentSubScreen = SubScreen.ORDER_TRACKING,
+                            trackingProgress = 0.25f,
+                            trackingEtaMinutes = 18
+                        )
+                    }
+                }
+                is ApiResult.Error -> {
+                    android.util.Log.e("ViewModel", "Order creation failed: ${result.message}")
+                    _uiState.update { it.copy(isLoadingData = false) }
+                }
+            }
         }
     }
 

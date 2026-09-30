@@ -110,6 +110,11 @@ export async function createOrder(input: CreateOrderInput) {
             : {}),
         })),
       },
+      order_status_logs: {
+        create: {
+          status: 'pending',
+        },
+      },
     },
     select: ORDER_SELECT,
   });
@@ -170,6 +175,11 @@ export async function updateOrderStatus(
       status: status as any,
       ...(driverId && { driver_id: driverId }),
       updated_at: new Date(),
+      order_status_logs: {
+        create: {
+          status: status as any,
+        },
+      },
     },
     select: ORDER_SELECT,
   });
