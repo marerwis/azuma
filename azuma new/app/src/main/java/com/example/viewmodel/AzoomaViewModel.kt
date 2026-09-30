@@ -501,7 +501,7 @@ class AzoomaViewModel : ViewModel() {
         
         channel.postgresChangeFlow<PostgresAction.Update>(schema = "public") {
             table = "orders"
-            filter("id", io.github.jan.supabase.realtime.FilterOperator.EQ, cleanOrderId)
+            filter("id", io.github.jan.supabase.postgrest.query.filter.FilterOperator.EQ, cleanOrderId)
         }.onEach { change ->
             val newStatus = change.record["status"]?.toString() ?: return@onEach
             val mappedStatus = when (newStatus) {
