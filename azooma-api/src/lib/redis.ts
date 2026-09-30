@@ -1,4 +1,4 @@
-import Redis from 'ioredis';
+﻿import Redis from 'ioredis';
 
 const redisUrl = process.env.REDIS_URL;
 
@@ -20,7 +20,6 @@ export async function withCache<T>(
     }
   } catch (error) {
     console.error(`Redis get error for key ${key}:`, error);
-    // If Redis fails, gracefully fall back to fetching data directly
   }
 
   const data = await fetcher();
@@ -32,4 +31,16 @@ export async function withCache<T>(
   }
 
   return data;
+}
+
+/**
+ * Invalidate one or more cache keys (e.g. after an admin write).
+ * Called by mutation endpoints so the next read fetches fresh data.
+ */
+export async function invalidateCache(...keys: string[]): Promise<void> {
+  try {
+    if (keys.length > 0) await redis.del(...keys);
+  } catch (error) {
+    console.error('Redis invalidateCache error:', error);
+  }
 }

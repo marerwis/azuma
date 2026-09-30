@@ -108,3 +108,13 @@ data class ProductDto(
     @Json(name = "stock_quantity") val stockQuantity: Int? = null,
     @Json(name = "menu_category_id") val menuCategoryId: String? = null
 )
+
+// ── Banners ───────────────────────────────────────────────────────
+@JsonClass(generateAdapter = true)
+data class BannerDto(
+    val id: String,
+    @Json(name = "image_url") val imageUrl: String,
+    @Json(name = "action_url") val actionUrl: String? = null,
+    @Json(name = "store_id") val storeId: String? = null,
+    @Json(name = "sort_order") val sortOrder: Int = 0
+)

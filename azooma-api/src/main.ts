@@ -13,6 +13,7 @@ import { categoriesRouter } from './modules/categories/categories.router';
 import { storesRouter } from './modules/stores/stores.router';
 import { usersRouter } from './modules/users/users.router';
 import { ordersRouter } from './modules/orders/orders.router';
+import { bannersRouter } from './modules/banners/banners.router';
 
 // ── App Bootstrap ──────────────────────────────────────────────────────────
 const app = express();
@@ -34,6 +35,7 @@ app.use('/api/v1/categories', categoriesRouter);
 app.use('/api/v1/stores', storesRouter);
 app.use('/api/v1/users', usersRouter);
 app.use('/api/v1/orders', ordersRouter);
+app.use('/api/v1/banners', bannersRouter);
 
 // ── Global Error Handler ───────────────────────────────────────────────────
 app.use(

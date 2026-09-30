@@ -1,5 +1,5 @@
 import { prisma } from '../../config/db';
-import { withCache } from '../../lib/redis';
+import { withCache, invalidateCache } from '../../lib/redis';
 
 // ---------------------------------------------------------------------------
 // Stores Service
@@ -11,7 +11,7 @@ export async function getAllStores(filters: {
   isOpen?: boolean;
 }) {
   const cacheKey = `stores:all:${JSON.stringify(filters)}`;
-  return withCache(cacheKey, 60, () => prisma.stores.findMany({
+  return withCache(cacheKey, 30, () => prisma.stores.findMany({
     where: {
       is_active: filters.isActive ?? true,
       ...(filters.isOpen !== undefined && { is_open: filters.isOpen }),
@@ -41,7 +41,7 @@ export async function getAllStores(filters: {
 }
 
 export async function getStoreById(id: string) {
-  return withCache(`store:${id}`, 120, () => prisma.stores.findUnique({
+  return withCache(`store:${id}`, 30, () => prisma.stores.findUnique({
     where: { id },
     select: {
       id: true,
@@ -97,7 +97,10 @@ export async function createStore(data: {
   delivery_radius_km?: number;
   commission_rate?: number;
 }) {
-  return prisma.stores.create({ data });
+  const result = await prisma.stores.create({ data });
+  // Bust all stores list caches (they differ by filter, use pattern delete via SCAN)
+  await bustStoreListCache();
+  return result;
 }
 
 export async function updateStore(
@@ -118,18 +121,35 @@ export async function updateStore(
     closing_time?: Date;
   }
 ) {
-  return prisma.stores.update({ where: { id }, data: { ...data, updated_at: new Date() } });
+  const result = await prisma.stores.update({ where: { id }, data: { ...data, updated_at: new Date() } });
+  await invalidateCache(`store:${id}`);
+  await bustStoreListCache();
+  return result;
 }
 
 export async function deleteStore(id: string) {
-  return prisma.stores.delete({ where: { id } });
+  const result = await prisma.stores.delete({ where: { id } });
+  await invalidateCache(`store:${id}`);
+  await bustStoreListCache();
+  return result;
+}
+
+/** Delete all stores:all:* keys (they vary by filter JSON). */
+async function bustStoreListCache() {
+  try {
+    const { redis } = await import('../../lib/redis');
+    const keys = await redis.keys('stores:all:*');
+    if (keys.length > 0) await redis.del(...keys);
+  } catch (e) {
+    console.error('bustStoreListCache error:', e);
+  }
 }
 
 // ---------------------------------------------------------------------------
 // Store Menu Categories (nested under a store)
 // ---------------------------------------------------------------------------
 export async function getMenuCategories(storeId: string) {
-  return withCache(`menu:${storeId}`, 300, () => prisma.menu_categories.findMany({
+  return withCache(`menu:${storeId}`, 30, () => prisma.menu_categories.findMany({
     where: { store_id: storeId, is_active: true },
     orderBy: { sort_order: 'asc' },
   }));
@@ -150,7 +170,7 @@ export async function deleteMenuCategory(id: string) {
 // ---------------------------------------------------------------------------
 export async function getProducts(storeId: string, menuCategoryId?: string) {
   const cacheKey = `products:${storeId}:${menuCategoryId || 'all'}`;
-  return withCache(cacheKey, 300, () => prisma.products.findMany({
+  return withCache(cacheKey, 30, () => prisma.products.findMany({
     where: {
       store_id: storeId,
       is_active: true,

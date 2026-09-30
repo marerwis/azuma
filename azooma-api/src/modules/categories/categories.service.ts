@@ -1,12 +1,12 @@
 import { prisma } from '../../config/db';
-import { withCache } from '../../lib/redis';
+import { withCache, invalidateCache } from '../../lib/redis';
 
 // ---------------------------------------------------------------------------
 // Categories Service — app_categories table (global, not store-scoped)
 // ---------------------------------------------------------------------------
 
 export async function getAllCategories() {
-  return withCache('categories:all', 600, () => prisma.app_categories.findMany({
+  return withCache('categories:all', 30, () => prisma.app_categories.findMany({
     where: { is_active: true },
     orderBy: { sort_order: 'asc' },
     select: {
@@ -21,7 +21,7 @@ export async function getAllCategories() {
 }
 
 export async function getCategoryById(id: string) {
-  return withCache(`category:${id}`, 600, () => prisma.app_categories.findUnique({
+  return withCache(`category:${id}`, 30, () => prisma.app_categories.findUnique({
     where: { id },
     select: {
       id: true,
@@ -50,16 +50,22 @@ export async function createCategory(data: {
   image_url?: string;
   sort_order?: number;
 }) {
-  return prisma.app_categories.create({ data });
+  const result = await prisma.app_categories.create({ data });
+  await invalidateCache('categories:all');
+  return result;
 }
 
 export async function updateCategory(
   id: string,
   data: { name?: string; image_url?: string; sort_order?: number; is_active?: boolean }
 ) {
-  return prisma.app_categories.update({ where: { id }, data });
+  const result = await prisma.app_categories.update({ where: { id }, data });
+  await invalidateCache('categories:all', `category:${id}`);
+  return result;
 }
 
 export async function deleteCategory(id: string) {
-  return prisma.app_categories.delete({ where: { id } });
+  const result = await prisma.app_categories.delete({ where: { id } });
+  await invalidateCache('categories:all', `category:${id}`);
+  return result;
 }

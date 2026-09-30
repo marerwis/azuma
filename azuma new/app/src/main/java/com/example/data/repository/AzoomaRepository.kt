@@ -161,6 +161,28 @@ class AzoomaRepository(private val api: AzoomaApiService) {
     }
 
     // ── Banners ───────────────────────────────────────────────────────────────
-    // Banners endpoint not yet built — return empty until added
-    suspend fun getBanners(): ApiResult<List<AppBanner>> = ApiResult.Success(emptyList())
+
+    suspend fun getBanners(): ApiResult<List<AppBanner>> {
+        return try {
+            val response = api.getBanners()
+            if (response.isSuccessful) {
+                val dtos = response.body()?.data ?: emptyList()
+                ApiResult.Success(dtos.map { dto ->
+                    AppBanner(
+                        id        = dto.id,
+                        imageUrl  = dto.imageUrl,
+                        actionUrl = dto.actionUrl,
+                        storeId   = dto.storeId
+                    )
+                })
+            } else {
+                Log.e(TAG, "getBanners HTTP ${response.code()}")
+                ApiResult.Success(emptyList()) // non-fatal: show no banners
+            }
+        } catch (e: Exception) {
+            Log.e(TAG, "getBanners error", e)
+            ApiResult.Success(emptyList()) // non-fatal
+        }
+    }
 }
+

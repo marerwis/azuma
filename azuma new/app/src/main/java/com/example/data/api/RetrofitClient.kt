@@ -51,6 +51,10 @@ interface AzoomaApiService {
         @Path("id") storeId: String,
         @Query("menuCategoryId") menuCategoryId: String? = null
     ): Response<ApiResponse<List<ProductDto>>>
+
+    // ── Banners ───────────────────────────────────────────────────────
+    @GET("api/v1/banners")
+    suspend fun getBanners(): Response<ApiResponse<List<BannerDto>>>
 }
 
 // ── Auth Interceptor — injects Bearer token on every request ────────────────

@@ -1,8 +1,10 @@
 package com.example.viewmodel
 
+import androidx.lifecycle.AndroidViewModel
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import com.example.data.SampleData
+import com.example.data.SessionManager
 import com.example.data.api.RetrofitClient
 import com.example.data.repository.ApiResult
 import com.example.data.repository.AzoomaRepository
@@ -11,6 +13,7 @@ import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
+import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.launch
 import com.example.data.supabase
@@ -21,6 +24,7 @@ import io.github.jan.supabase.realtime.postgresChangeFlow
 import io.github.jan.supabase.realtime.PostgresAction
 import kotlinx.coroutines.flow.onEach
 import kotlinx.coroutines.flow.launchIn
+import android.app.Application
 
 enum class BottomTab {
     HOME,
@@ -98,10 +102,12 @@ data class UiState(
     val trackingEtaMinutes: Int = 14
 )
 
-class AzoomaViewModel : ViewModel() {
+class AzoomaViewModel(application: Application) : AndroidViewModel(application) {
 
     private val _uiState = MutableStateFlow(UiState())
     val uiState: StateFlow<UiState> = _uiState.asStateFlow()
+
+    private val sessionManager = SessionManager(application.applicationContext)
 
     // Token provider — set from MainActivity after Firebase Auth gives us the token
     private var _idToken: String? = null
@@ -116,7 +122,35 @@ class AzoomaViewModel : ViewModel() {
 
     init {
         startDriverSimulation()
+        restoreSession()       // ← restore persisted session BEFORE fetching data
         fetchInitialData()
+    }
+
+    /** Restores a previously saved session from DataStore so users stay logged in. */
+    private fun restoreSession() {
+        viewModelScope.launch {
+            try {
+                val savedSession = sessionManager.sessionFlow.first()
+                val savedToken   = sessionManager.firebaseTokenFlow.first()
+                if (savedSession != null && savedToken != null) {
+                    _idToken = savedToken
+                    // Re-inject Supabase JWT for Realtime if it was saved
+                    savedSession.supabaseToken?.let { token ->
+                        try { supabase.auth.importAuthToken(token) } catch (_: Exception) { }
+                    }
+                    _uiState.update {
+                        it.copy(
+                            isAuthenticated = true,
+                            userSession     = savedSession,
+                            userName        = savedSession.fullName.ifBlank { "مستخدم" },
+                            userPhone       = savedSession.phone ?: ""
+                        )
+                    }
+                }
+            } catch (e: Exception) {
+                android.util.Log.e("ViewModel", "Failed to restore session", e)
+            }
+        }
     }
 
     // ── Data Fetching ─────────────────────────────────────────────────────────
@@ -195,6 +229,11 @@ class AzoomaViewModel : ViewModel() {
                         } catch (e: Exception) {
                             android.util.Log.e("ViewModel", "Failed to authenticate Supabase", e)
                         }
+                    }
+
+                    // ── Persist session to DataStore so user stays logged in ──
+                    try { sessionManager.save(session, idToken) } catch (e: Exception) {
+                        android.util.Log.e("ViewModel", "Failed to persist session", e)
                     }
 
                     _uiState.update {
@@ -586,6 +625,11 @@ class AzoomaViewModel : ViewModel() {
 
     fun logout() {
         _idToken = null
+        viewModelScope.launch {
+            try { sessionManager.clear() } catch (e: Exception) {
+                android.util.Log.e("ViewModel", "Failed to clear session", e)
+            }
+        }
         _uiState.update {
             it.copy(
                 isAuthenticated = false,
