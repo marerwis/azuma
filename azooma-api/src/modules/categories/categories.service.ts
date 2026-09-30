@@ -1,11 +1,12 @@
 import { prisma } from '../../config/db';
+import { withCache } from '../../lib/redis';
 
 // ---------------------------------------------------------------------------
 // Categories Service — app_categories table (global, not store-scoped)
 // ---------------------------------------------------------------------------
 
 export async function getAllCategories() {
-  return prisma.app_categories.findMany({
+  return withCache('categories:all', 600, () => prisma.app_categories.findMany({
     where: { is_active: true },
     orderBy: { sort_order: 'asc' },
     select: {
@@ -16,11 +17,11 @@ export async function getAllCategories() {
       sort_order: true,
       created_at: true,
     },
-  });
+  }));
 }
 
 export async function getCategoryById(id: string) {
-  return prisma.app_categories.findUnique({
+  return withCache(`category:${id}`, 600, () => prisma.app_categories.findUnique({
     where: { id },
     select: {
       id: true,
@@ -41,7 +42,7 @@ export async function getCategoryById(id: string) {
         },
       },
     },
-  });
+  }));
 }
 
 export async function createCategory(data: {

@@ -1,4 +1,5 @@
 import { prisma } from '../../config/db';
+import { withCache } from '../../lib/redis';
 
 // ---------------------------------------------------------------------------
 // Stores Service
@@ -9,7 +10,8 @@ export async function getAllStores(filters: {
   isActive?: boolean;
   isOpen?: boolean;
 }) {
-  return prisma.stores.findMany({
+  const cacheKey = `stores:all:${JSON.stringify(filters)}`;
+  return withCache(cacheKey, 60, () => prisma.stores.findMany({
     where: {
       is_active: filters.isActive ?? true,
       ...(filters.isOpen !== undefined && { is_open: filters.isOpen }),
@@ -35,11 +37,11 @@ export async function getAllStores(filters: {
       app_categories: { select: { id: true, name: true, image_url: true } },
       _count: { select: { menu_categories: true, products: true } },
     },
-  });
+  }));
 }
 
 export async function getStoreById(id: string) {
-  return prisma.stores.findUnique({
+  return withCache(`store:${id}`, 120, () => prisma.stores.findUnique({
     where: { id },
     select: {
       id: true,
@@ -79,7 +81,7 @@ export async function getStoreById(id: string) {
         },
       },
     },
-  });
+  }));
 }
 
 export async function createStore(data: {
@@ -127,10 +129,10 @@ export async function deleteStore(id: string) {
 // Store Menu Categories (nested under a store)
 // ---------------------------------------------------------------------------
 export async function getMenuCategories(storeId: string) {
-  return prisma.menu_categories.findMany({
+  return withCache(`menu:${storeId}`, 300, () => prisma.menu_categories.findMany({
     where: { store_id: storeId, is_active: true },
     orderBy: { sort_order: 'asc' },
-  });
+  }));
 }
 
 export async function createMenuCategory(storeId: string, name: string, sortOrder?: number) {
@@ -147,7 +149,8 @@ export async function deleteMenuCategory(id: string) {
 // Store Products (nested under a store)
 // ---------------------------------------------------------------------------
 export async function getProducts(storeId: string, menuCategoryId?: string) {
-  return prisma.products.findMany({
+  const cacheKey = `products:${storeId}:${menuCategoryId || 'all'}`;
+  return withCache(cacheKey, 300, () => prisma.products.findMany({
     where: {
       store_id: storeId,
       is_active: true,
@@ -166,7 +169,7 @@ export async function getProducts(storeId: string, menuCategoryId?: string) {
       menu_category_id: true,
       created_at: true,
     },
-  });
+  }));
 }
 
 export async function createProduct(data: {
