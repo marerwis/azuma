@@ -190,11 +190,7 @@ class AzoomaViewModel : ViewModel() {
                     // Inject the custom backend JWT into Supabase so Realtime RLS works
                     session.supabaseToken?.let { token ->
                         try {
-                            supabase.auth.importAuthToken(
-                                accessToken = token,
-                                refreshToken = "",
-                                expiresIn = 3600 * 24 * 30L // 30 days
-                            )
+                            supabase.auth.importAuthToken(token)
                             supabase.realtime.connect()
                         } catch (e: Exception) {
                             android.util.Log.e("ViewModel", "Failed to authenticate Supabase", e)
@@ -505,27 +501,24 @@ class AzoomaViewModel : ViewModel() {
         
         channel.postgresChangeFlow<PostgresAction.Update>(schema = "public") {
             table = "orders"
-            filter = "id=eq.$cleanOrderId"
+            filter("id", io.github.jan.supabase.realtime.FilterOperator.EQ, cleanOrderId)
         }.onEach { change ->
             val newStatus = change.record["status"]?.toString() ?: return@onEach
             val mappedStatus = when (newStatus) {
-                "pending" -> OrderStatus.PENDING
-                "accepted" -> OrderStatus.PREPARING
+                "accepted" -> OrderStatus.ACCEPTED
                 "preparing" -> OrderStatus.PREPARING
-                "ready" -> OrderStatus.READY
                 "on_the_way" -> OrderStatus.ON_THE_WAY
                 "delivered" -> OrderStatus.DELIVERED
                 "cancelled" -> OrderStatus.CANCELLED
-                else -> OrderStatus.PENDING
+                else -> OrderStatus.ACCEPTED
             }
             
             _uiState.update { state ->
                 val activeOrder = state.activeTrackingOrder
                 if (activeOrder != null && activeOrder.id == orderId) {
                     val newProgress = when (mappedStatus) {
-                        OrderStatus.PENDING -> 0.1f
+                        OrderStatus.ACCEPTED -> 0.1f
                         OrderStatus.PREPARING -> 0.3f
-                        OrderStatus.READY -> 0.6f
                         OrderStatus.ON_THE_WAY -> 0.8f
                         OrderStatus.DELIVERED -> 1.0f
                         OrderStatus.CANCELLED -> 0.0f
