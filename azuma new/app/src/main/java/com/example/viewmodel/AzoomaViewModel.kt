@@ -443,8 +443,16 @@ class AzoomaViewModel(application: Application) : AndroidViewModel(application) 
 
         val paymentMethod = when (_uiState.value.selectedPaymentType) {
             PaymentType.CASH -> "cash"
-            PaymentType.CARD -> "card"
             PaymentType.WALLET -> "wallet"
+            PaymentType.BANK_CARD -> "card"
+            // Libyan gateways — map to 'online' for the backend payload
+            // (deep gateway integration deferred to a future sprint)
+            PaymentType.LIBYANA,
+            PaymentType.SADAD,
+            PaymentType.EDFA3LY,
+            PaymentType.MOBI_CASH,
+            PaymentType.MASRAFI_PAY,
+            PaymentType.YUSR_ONLINE -> "online"
         }
 
         val request = com.example.data.api.CreateOrderRequest(
