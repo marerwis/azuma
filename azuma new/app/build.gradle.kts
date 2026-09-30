@@ -6,7 +6,8 @@ plugins {
   alias(libs.plugins.kotlin.serialization)
   alias(libs.plugins.google.devtools.ksp)
   alias(libs.plugins.secrets)
-  alias(libs.plugins.google.services)
+  alias(libs.plugins.google.services)           // must be before crashlytics
+  alias(libs.plugins.firebase.crashlytics)      // must be after google.services
 }
 
 android {
@@ -127,8 +128,14 @@ dependencies {
   implementation(libs.supabase.auth)
   implementation(libs.supabase.postgrest)
   implementation(libs.supabase.storage)
+  implementation(libs.supabase.realtime)
   implementation(libs.ktor.client.android)
   implementation(libs.kotlinx.serialization.json)
+
+  // Firebase Crashlytics + Analytics (via BoM — no version needed)
+  implementation(platform(libs.firebase.bom))
+  implementation(libs.firebase.crashlytics)
+  implementation(libs.firebase.analytics)
   testImplementation(libs.androidx.compose.ui.test.junit4)
   testImplementation(libs.androidx.core)
   testImplementation(libs.androidx.junit)
