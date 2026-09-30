@@ -49,12 +49,13 @@ export async function verifyController(
 
   try {
     // 2. Verify + sync
-    const { user, isNewUser } = await verifyAndSyncUser(idToken!, fcmToken);
+    const { user, isNewUser, supabaseToken } = await verifyAndSyncUser(idToken!, fcmToken);
 
     // 3. Respond
     res.status(200).json({
       success: true,
       isNewUser,
+      supabaseToken,
       user: {
         id: user.id,
         email: user.email,

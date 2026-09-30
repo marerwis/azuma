@@ -1,5 +1,6 @@
 import { prisma } from '../../config/db';
 import { getAuth } from 'firebase-admin/auth';
+import * as jwt from 'jsonwebtoken';
 
 // ---------------------------------------------------------------------------
 // Auth Service
@@ -20,6 +21,7 @@ export interface VerifyResult {
     created_at: Date | null;
   };
   isNewUser: boolean;
+  supabaseToken: string;
 }
 
 export async function verifyAndSyncUser(
@@ -109,5 +111,21 @@ export async function verifyAndSyncUser(
     isNewUser = true;
   }
 
-  return { user, isNewUser };
+  // 3. Generate a Supabase JWT for the client to use with Realtime/RLS
+  const jwtSecret = process.env.SUPABASE_JWT_SECRET;
+  if (!jwtSecret) {
+    throw new Error('SUPABASE_JWT_SECRET is missing from environment variables');
+  }
+
+  const supabaseToken = jwt.sign(
+    {
+      aud: 'authenticated',
+      role: 'authenticated',
+      sub: user.id, // Must match the UUID in public.users to satisfy auth.uid() in RLS
+    },
+    jwtSecret,
+    { expiresIn: '30d' }
+  );
+
+  return { user, isNewUser, supabaseToken };
 }
