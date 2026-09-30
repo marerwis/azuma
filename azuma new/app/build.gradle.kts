@@ -31,6 +31,12 @@ android {
       keyAlias = "upload"
       keyPassword = "android"
     }
+    create("debug") {
+      storeFile = file("debug.keystore")
+      storePassword = "android"
+      keyAlias = "androiddebugkey"
+      keyPassword = "android"
+    }
   }
 
   buildTypes {
@@ -41,7 +47,7 @@ android {
       signingConfig = signingConfigs.getByName("release")
     }
     debug {
-      // uses Android's default debug keystore automatically
+      signingConfig = signingConfigs.getByName("debug")
       // Firebase App Distribution config is passed via CLI flags in CI (see .github/workflows)
     }
   }
