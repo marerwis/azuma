@@ -54,6 +54,14 @@ fun AzoomaApp(viewModel: AzoomaViewModel = viewModel()) {
     val coroutineScope = rememberCoroutineScope()
     val snackbarHostState = remember { SnackbarHostState() }
 
+    // If session is still loading, block the UI to prevent login screen flash
+    if (uiState.isSessionLoading) {
+        Box(modifier = Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
+            CircularProgressIndicator()
+        }
+        return
+    }
+
     // If unauthenticated: Display Welcome Screen
     if (!uiState.isAuthenticated) {
         WelcomeScreen(

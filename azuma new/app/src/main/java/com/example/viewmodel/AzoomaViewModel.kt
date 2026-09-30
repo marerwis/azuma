@@ -62,6 +62,7 @@ data class UiState(
     val selectedStoreMenu: List<MenuCategoryWithProducts> = emptyList(),
 
     // ── Authentication ────────────────────────────────────────────────────────
+    val isSessionLoading: Boolean = true,
     val isAuthenticated: Boolean = false,
     val showAuthSheet: Boolean = false,
     val authMode: String = "REGISTER",
@@ -143,11 +144,15 @@ class AzoomaViewModel(application: Application) : AndroidViewModel(application) 
                             isAuthenticated = true,
                             userSession     = savedSession,
                             userName        = savedSession.fullName.ifBlank { "مستخدم" },
-                            userPhone       = savedSession.phone ?: ""
+                            userPhone       = savedSession.phone ?: "",
+                            isSessionLoading = false
                         )
                     }
+                } else {
+                    _uiState.update { it.copy(isSessionLoading = false) }
                 }
             } catch (e: Exception) {
+                _uiState.update { it.copy(isSessionLoading = false) }
                 android.util.Log.e("ViewModel", "Failed to restore session", e)
             }
         }
@@ -340,7 +345,8 @@ class AzoomaViewModel(application: Application) : AndroidViewModel(application) 
                 cartState = currentCart.copy(
                     items = updatedItems,
                     storeId = activeStore.id,
-                    storeName = activeStore.name
+                    storeName = activeStore.name,
+                    storeCommissionRate = activeStore.actualCommissionRate
                 )
             )
         }
@@ -636,7 +642,8 @@ class AzoomaViewModel(application: Application) : AndroidViewModel(application) 
                 showLogoutDialog = false,
                 userSession = null,
                 currentTab = BottomTab.HOME,
-                currentSubScreen = SubScreen.NONE
+                currentSubScreen = SubScreen.NONE,
+                isSessionLoading = false
             )
         }
     }

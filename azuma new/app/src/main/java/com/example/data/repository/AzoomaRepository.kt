@@ -100,7 +100,8 @@ class AzoomaRepository(private val api: AzoomaApiService) {
                         address = dto.description ?: dto.address ?: "بنغازي",
                         logoText = dto.imageUrl ?: "",
                         // Compute delivery fee / time from API data if available
-                        deliveryFee = dto.deliveryRadiusKm ?: 5.0
+                        deliveryFee = dto.deliveryRadiusKm ?: 5.0,
+                        actualCommissionRate = dto.commissionRate ?: 0.0
                     )
                 })
             } else {

@@ -142,7 +142,8 @@ data class Store(
     @SerialName("image_url")
     val logoText: String = "",
     val tags: List<String> = listOf("سريع"),
-    val pickupAvailable: Boolean = true
+    val pickupAvailable: Boolean = true,
+    val actualCommissionRate: Double = 0.0
 ) {
     val absoluteLogoUrl: String
         get() {

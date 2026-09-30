@@ -13,6 +13,7 @@ data class CartState(
     val items: List<CartItem> = emptyList(),
     val storeId: String? = null,
     val storeName: String = "",
+    val storeCommissionRate: Double = 0.0,
     val storeNote: String = "",
     val deliveryNote: String = "",
     val isDelivery: Boolean = true
@@ -24,7 +25,7 @@ data class CartState(
         get() = if (items.isEmpty() || !isDelivery) 0.0 else 6.0
 
     val serviceFee: Double
-        get() = if (items.isEmpty()) 0.0 else 1.25
+        get() = if (items.isEmpty()) 0.0 else (subtotal * storeCommissionRate / 100.0)
 
     val grandTotal: Double
         get() = if (items.isEmpty()) 0.0 else (subtotal + deliveryFee + serviceFee)

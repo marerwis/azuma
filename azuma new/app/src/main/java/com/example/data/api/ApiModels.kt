@@ -76,6 +76,7 @@ data class StoreDto(
     val latitude: Double? = null,
     val longitude: Double? = null,
     @Json(name = "delivery_radius_km") val deliveryRadiusKm: Double? = null,
+    @Json(name = "commission_rate") val commissionRate: Double? = null,
     @Json(name = "is_active") val isActive: Boolean = true,
     @Json(name = "is_open") val isOpen: Boolean = false,
     @Json(name = "opening_time") val openingTime: String? = null,
