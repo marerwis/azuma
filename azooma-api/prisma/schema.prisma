@@ -779,6 +779,8 @@ model stores {
   commission_rate    Float?            @default(10.0)
   is_active          Boolean?          @default(true)
   is_open            Boolean?          @default(true)
+  /// Whether this store accepts Cash on Delivery. Set to false for online-payment-only vendors.
+  accepts_cash       Boolean           @default(true)
   created_at         DateTime?         @default(now()) @db.Timestamptz(6)
   updated_at         DateTime?         @default(now()) @db.Timestamptz(6)
   opening_time       DateTime?         @db.Time(6)
