@@ -678,7 +678,7 @@ model orders {
   store_id                        String         @db.Uuid
   driver_id                       String?        @db.Uuid
   coupon_id                       String?        @db.Uuid
-  status                          order_status?  @default(pending)
+  status                          order_status?  @default(PENDING)
   subtotal                        Decimal        @db.Decimal(10, 2)
   delivery_fee                    Decimal        @db.Decimal(10, 2)
   discount_amount                 Decimal?       @default(0) @db.Decimal(10, 2)
@@ -691,10 +691,12 @@ model orders {
   is_paid                         Boolean?       @default(false)
   special_instructions            String?
   prep_time_minutes               Int?
+  cancellation_reason             String?
+  rejected_by                     String?
   created_at                      DateTime?      @default(now()) @db.Timestamptz(6)
   updated_at                      DateTime?      @default(now()) @db.Timestamptz(6)
   order_items                     order_items[]
-  order_status_logs               order_status_logs[]
+  order_status_history            order_status_history[]
   coupons                         coupons?       @relation(fields: [coupon_id], references: [id], onDelete: NoAction, onUpdate: NoAction)
   users_orders_customer_idTousers public_users   @relation("orders_customer_idTousers", fields: [customer_id], references: [id], onDelete: NoAction, onUpdate: NoAction)
   users_orders_driver_idTousers   public_users?  @relation("orders_driver_idTousers", fields: [driver_id], references: [id], onDelete: NoAction, onUpdate: NoAction)
@@ -908,13 +910,14 @@ enum one_time_token_type {
 }
 
 enum order_status {
-  pending
-  accepted
-  preparing
-  ready
-  picked_up
-  delivered
-  cancelled
+  PENDING
+  ACCEPTED_PREPARING
+  READY_FOR_PICKUP
+  ACCEPTED_BY_DRIVER
+  PICKED_UP
+  DELIVERED
+  CANCELLED_BY_USER
+  REJECTED_BY_STORE
 
   @@schema("public")
 }
@@ -939,10 +942,11 @@ enum user_role {
 }
 
 /// This model contains row level security and requires additional setup for migrations. Visit https://pris.ly/d/row-level-security for more info.
-model order_status_logs {
+model order_status_history {
   id         String       @id @default(dbgenerated("uuid_generate_v4()")) @db.Uuid
   order_id   String       @db.Uuid
   status     order_status
+  notes      String?
   created_at DateTime?    @default(now()) @db.Timestamptz(6)
   orders     orders       @relation(fields: [order_id], references: [id], onDelete: Cascade, onUpdate: NoAction)
 

@@ -23,12 +23,14 @@ const createOrderSchema = z.object({
 });
 
 const ORDER_STATUSES = [
-  'pending', 'accepted', 'preparing', 'ready', 'picked_up', 'delivered', 'cancelled',
+  'PENDING', 'ACCEPTED_PREPARING', 'READY_FOR_PICKUP', 'ACCEPTED_BY_DRIVER', 'PICKED_UP', 'DELIVERED', 'CANCELLED_BY_USER', 'REJECTED_BY_STORE',
 ] as const;
 
 const updateStatusSchema = z.object({
   status: z.enum(ORDER_STATUSES),
-  driver_id: z.string().uuid().optional(), // assign driver when status = 'picked_up'
+  prep_time_minutes: z.number().int().positive().optional(),
+  cancellation_reason: z.string().optional(),
+  notes: z.string().optional(),
 });
 
 // ── Controllers ────────────────────────────────────────────────────────────
@@ -126,12 +128,34 @@ export async function updateStatus(req: Request, res: Response): Promise<void> {
     const data = await svc.updateOrderStatus(
       req.params.id as string,
       parsed.data.status,
-      parsed.data.driver_id
+      {
+        userId: req.user!.id,
+        role: req.user!.role,
+        prep_time_minutes: parsed.data.prep_time_minutes,
+        cancellation_reason: parsed.data.cancellation_reason,
+        notes: parsed.data.notes,
+      }
     );
     res.json({ success: true, data });
   } catch (e: any) {
-    if (e?.code === 'P2025') { res.status(404).json({ error: 'Order not found' }); return; }
+    if (e?.code === 'P2025' || e?.message === 'Order not found') { res.status(404).json({ error: 'Order not found' }); return; }
+    if (e?.message?.includes('Invalid transition')) { res.status(400).json({ error: e.message }); return; }
     console.error('[Orders] updateStatus error:', e);
+    res.status(500).json({ error: 'Internal server error' });
+  }
+}
+
+/** POST /api/v1/orders/:id/assign-driver  (driver) */
+export async function assignDriver(req: Request, res: Response): Promise<void> {
+  try {
+    const data = await svc.assignDriver(req.params.id as string, req.user!.id);
+    res.json({ success: true, data });
+  } catch (e: any) {
+    if (e?.code === 'P2025' || e?.message === 'Order not found') { res.status(404).json({ error: 'Order not found' }); return; }
+    if (e?.message?.includes('conflict') || e?.message?.includes('Already assigned') || e?.message?.includes('Not ready')) { 
+      res.status(409).json({ error: e.message }); return; 
+    }
+    console.error('[Orders] assignDriver error:', e);
     res.status(500).json({ error: 'Internal server error' });
   }
 }

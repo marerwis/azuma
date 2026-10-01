@@ -46,7 +46,7 @@ export async function updateAddress(req: Request, res: Response): Promise<void> 
     return;
   }
   try {
-    const data = await svc.updateAddress(req.user!.id, req.params.id, parsed.data);
+    const data = await svc.updateAddress(req.user!.id, req.params.id as string, parsed.data);
     if (!data) {
        res.status(404).json({ error: 'Address not found or unauthorized' });
        return;
@@ -60,7 +60,7 @@ export async function updateAddress(req: Request, res: Response): Promise<void> 
 
 export async function deleteAddress(req: Request, res: Response): Promise<void> {
   try {
-    const success = await svc.deleteAddress(req.user!.id, req.params.id);
+    const success = await svc.deleteAddress(req.user!.id, req.params.id as string);
     if (!success) {
        res.status(404).json({ error: 'Address not found or unauthorized' });
        return;

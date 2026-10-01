@@ -6,6 +6,7 @@ import {
   getOrderById,
   listOrders,
   updateStatus,
+  assignDriver,
 } from './orders.controller';
 
 const router = Router();
@@ -23,5 +24,6 @@ router.get('/:id', getOrderById);
 // ── Admin + Vendor + Driver routes ─────────────────────────────────────────
 router.get('/', requireRole('admin', 'vendor'), listOrders);
 router.patch('/:id/status', requireRole('admin', 'vendor', 'driver'), updateStatus);
+router.post('/:id/assign-driver', requireRole('driver'), assignDriver);
 
 export { router as ordersRouter };
