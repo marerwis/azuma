@@ -673,34 +673,42 @@ model order_items {
 
 /// This model contains row level security and requires additional setup for migrations. Visit https://pris.ly/d/row-level-security for more info.
 model orders {
-  id                              String         @id @default(dbgenerated("uuid_generate_v4()")) @db.Uuid
-  customer_id                     String         @db.Uuid
-  store_id                        String         @db.Uuid
-  driver_id                       String?        @db.Uuid
-  coupon_id                       String?        @db.Uuid
-  status                          order_status?  @default(PENDING)
-  subtotal                        Decimal        @db.Decimal(10, 2)
-  delivery_fee                    Decimal        @db.Decimal(10, 2)
-  discount_amount                 Decimal?       @default(0) @db.Decimal(10, 2)
-  tax_amount                      Decimal?       @default(0) @db.Decimal(10, 2)
-  total_amount                    Decimal        @db.Decimal(10, 2)
+  id                              String                 @id @default(dbgenerated("uuid_generate_v4()")) @db.Uuid
+  customer_id                     String                 @db.Uuid
+  store_id                        String                 @db.Uuid
+  driver_id                       String?                @db.Uuid
+  coupon_id                       String?                @db.Uuid
+  status                          order_status?          @default(PENDING)
+  order_type                      OrderType              @default(DELIVERY)
+  subtotal                        Decimal                @db.Decimal(10, 2)
+  /// Financial snapshot of delivery fee at checkout time — never changes post-order
+  delivery_fee                    Float                  @default(0.0)
+  discount_amount                 Decimal?               @default(0) @db.Decimal(10, 2)
+  tax_amount                      Decimal?               @default(0) @db.Decimal(10, 2)
+  total_amount                    Decimal                @db.Decimal(10, 2)
   delivery_address                String
   delivery_latitude               Float
   delivery_longitude              Float
-  payment_method                  String         @db.VarChar(50)
-  is_paid                         Boolean?       @default(false)
+  /// Financial snapshot of distance at checkout — fixed for invoice/receipt
+  total_distance_km               Float?
+  payment_method                  String                 @db.VarChar(50)
+  is_paid                         Boolean?               @default(false)
   special_instructions            String?
   prep_time_minutes               Int?
   cancellation_reason             String?
   rejected_by                     String?
-  created_at                      DateTime?      @default(now()) @db.Timestamptz(6)
-  updated_at                      DateTime?      @default(now()) @db.Timestamptz(6)
+  /// 4-digit OTP for verifying driver pickup from store
+  pickup_otp                      String?                @db.VarChar(4)
+  /// 4-digit OTP for verifying delivery to customer
+  delivery_otp                    String?                @db.VarChar(4)
+  created_at                      DateTime?              @default(now()) @db.Timestamptz(6)
+  updated_at                      DateTime?              @default(now()) @db.Timestamptz(6)
   order_items                     order_items[]
   order_status_history            order_status_history[]
-  coupons                         coupons?       @relation(fields: [coupon_id], references: [id], onDelete: NoAction, onUpdate: NoAction)
-  users_orders_customer_idTousers public_users   @relation("orders_customer_idTousers", fields: [customer_id], references: [id], onDelete: NoAction, onUpdate: NoAction)
-  users_orders_driver_idTousers   public_users?  @relation("orders_driver_idTousers", fields: [driver_id], references: [id], onDelete: NoAction, onUpdate: NoAction)
-  stores                          stores         @relation(fields: [store_id], references: [id], onDelete: NoAction, onUpdate: NoAction)
+  coupons                         coupons?               @relation(fields: [coupon_id], references: [id], onDelete: NoAction, onUpdate: NoAction)
+  users_orders_customer_idTousers public_users           @relation("orders_customer_idTousers", fields: [customer_id], references: [id], onDelete: NoAction, onUpdate: NoAction)
+  users_orders_driver_idTousers   public_users?          @relation("orders_driver_idTousers", fields: [driver_id], references: [id], onDelete: NoAction, onUpdate: NoAction)
+  stores                          stores                 @relation(fields: [store_id], references: [id], onDelete: NoAction, onUpdate: NoAction)
   transactions                    transactions[]
 
   @@schema("public")
@@ -764,8 +772,9 @@ model stores {
   image_url          String?
   cover_url          String?
   address            String
-  latitude           Float
-  longitude          Float
+  /// Spatial coordinates — nullable to allow store creation before GPS pin is set
+  latitude           Float?
+  longitude          Float?
   delivery_radius_km Float?            @default(5.0)
   commission_rate    Float?            @default(10.0)
   is_active          Boolean?          @default(true)
@@ -804,22 +813,23 @@ model transactions {
 
 /// This model contains row level security and requires additional setup for migrations. Visit https://pris.ly/d/row-level-security for more info.
 model public_users {
-  id                               String    @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
-  role                             user_role @default(customer)
-  full_name                        String    @db.VarChar(255)
-  phone                            String?   @unique @db.VarChar(20)
-  email                            String?   @unique @db.VarChar(255)
+  id                               String            @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  role                             user_role         @default(customer)
+  full_name                        String            @db.VarChar(255)
+  phone                            String?           @unique @db.VarChar(20)
+  email                            String?           @unique @db.VarChar(255)
   avatar_url                       String?
   fcm_token                        String?
-  is_active                        Boolean?  @default(true)
-  created_at                       DateTime? @default(now()) @db.Timestamptz(6)
-  updated_at                       DateTime? @default(now()) @db.Timestamptz(6)
-  firebase_uid                     String?   @unique @db.VarChar(255)
-  orders_orders_customer_idTousers orders[]  @relation("orders_customer_idTousers")
-  orders_orders_driver_idTousers   orders[]  @relation("orders_driver_idTousers")
+  is_active                        Boolean?          @default(true)
+  created_at                       DateTime?         @default(now()) @db.Timestamptz(6)
+  updated_at                       DateTime?         @default(now()) @db.Timestamptz(6)
+  firebase_uid                     String?           @unique @db.VarChar(255)
+  orders_orders_customer_idTousers orders[]          @relation("orders_customer_idTousers")
+  orders_orders_driver_idTousers   orders[]          @relation("orders_driver_idTousers")
   stores                           stores[]
   wallets                          wallets?
   addresses                        addresses[]
+  driver_locations                 driver_locations?
 
   @@map("users")
   @@schema("public")
@@ -909,6 +919,13 @@ enum one_time_token_type {
   @@schema("auth")
 }
 
+enum OrderType {
+  DELIVERY
+  PICKUP
+
+  @@schema("public")
+}
+
 enum order_status {
   PENDING
   ACCEPTED_PREPARING
@@ -955,20 +972,44 @@ model order_status_history {
 
 /// This model contains row level security and requires additional setup for migrations. Visit https://pris.ly/d/row-level-security for more info.
 model addresses {
-  id                    String   @id @default(dbgenerated("uuid_generate_v4()")) @db.Uuid
-  user_id               String   @db.Uuid
-  title                 String   // e.g., "Home", "Work"
+  id                    String       @id @default(dbgenerated("uuid_generate_v4()")) @db.Uuid
+  user_id               String       @db.Uuid
+  title                 String // e.g., "Home", "Work"
   full_address          String
   building_details      String?
   delivery_instructions String?
   latitude              Float?
   longitude             Float?
-  is_default            Boolean  @default(false)
-  metadata              Json?    // For future Google Maps Place ID or Plus Codes
-  created_at            DateTime @default(now()) @db.Timestamptz(6)
-  updated_at            DateTime @default(now()) @updatedAt @db.Timestamptz(6)
+  is_default            Boolean      @default(false)
+  metadata              Json? // For future Google Maps Place ID or Plus Codes
+  created_at            DateTime     @default(now()) @db.Timestamptz(6)
+  updated_at            DateTime     @default(now()) @updatedAt @db.Timestamptz(6)
+  users                 public_users @relation(fields: [user_id], references: [id], onDelete: Cascade)
 
-  users                 public_users    @relation(fields: [user_id], references: [id], onDelete: Cascade)
+  @@schema("public")
+}
+
+/// Real-time driver location — updated frequently via WebSocket/polling.
+/// Separate from orders to avoid table bloat and enable spatial indexing later.
+model driver_locations {
+  id         String       @id @default(dbgenerated("uuid_generate_v4()")) @db.Uuid
+  driver_id  String       @unique @db.Uuid
+  latitude   Float
+  longitude  Float
+  updated_at DateTime     @default(now()) @updatedAt @db.Timestamptz(6)
+  users      public_users @relation(fields: [driver_id], references: [id], onDelete: Cascade)
+
+  @@schema("public")
+}
+
+/// Dynamic application configuration — replaces hard-coded values in services.
+/// Example keys: base_delivery_fee_per_km, surge_multiplier, min_order_amount.
+model system_settings {
+  id            String   @id @default(dbgenerated("uuid_generate_v4()")) @db.Uuid
+  setting_key   String   @unique @db.VarChar(100)
+  setting_value Json
+  description   String?
+  updated_at    DateTime @default(now()) @updatedAt @db.Timestamptz(6)
 
   @@schema("public")
 }
