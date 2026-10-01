@@ -206,5 +206,137 @@ class AzoomaRepository(private val api: AzoomaApiService) {
             ApiResult.Error(e.message ?: "Network error")
         }
     }
-}
 
+    // ── User Profile ─────────────────────────────────────────────────────────
+
+    suspend fun getMe(): ApiResult<UserSession> {
+        return try {
+            val response = api.getMe()
+            if (response.isSuccessful) {
+                val dto = response.body()?.data
+                if (dto != null) {
+                    ApiResult.Success(
+                        UserSession(
+                            id = dto.id,
+                            email = dto.email,
+                            fullName = dto.fullName ?: "",
+                            phone = dto.phone,
+                            role = dto.role,
+                            avatarUrl = dto.avatarUrl,
+                            supabaseToken = null // token unchanged
+                        )
+                    )
+                } else {
+                    ApiResult.Error("No data in response")
+                }
+            } else {
+                ApiResult.Error("Fetch profile failed (${response.code()})", response.code())
+            }
+        } catch (e: Exception) {
+            Log.e(TAG, "getMe error", e)
+            ApiResult.Error(e.message ?: "Network error")
+        }
+    }
+
+    suspend fun updateProfile(
+        fullName: String? = null,
+        phone: String? = null,
+        email: String? = null
+    ): ApiResult<UserSession> {
+        return try {
+            val response = api.updateProfile(
+                com.example.data.api.UpdateProfileRequest(fullName = fullName, phone = phone, email = email)
+            )
+            if (response.isSuccessful) {
+                val dto = response.body()?.data
+                if (dto != null) {
+                    ApiResult.Success(
+                        UserSession(
+                            id = dto.id,
+                            email = dto.email,
+                            fullName = dto.fullName ?: "",
+                            phone = dto.phone,
+                            role = dto.role,
+                            avatarUrl = dto.avatarUrl,
+                            supabaseToken = null // token unchanged
+                        )
+                    )
+                } else {
+                    ApiResult.Error("No data in response")
+                }
+            } else {
+                ApiResult.Error("Profile update failed (${response.code()})", response.code())
+            }
+        } catch (e: Exception) {
+            Log.e(TAG, "updateProfile error", e)
+            ApiResult.Error(e.message ?: "Network error")
+        }
+    }
+    // ── Addresses ────────────────────────────────────────────────────────────
+
+    suspend fun getAddresses(): ApiResult<List<com.example.model.Address>> {
+        return try {
+            val response = api.getAddresses()
+            if (response.isSuccessful) {
+                val dtos = response.body()?.data ?: emptyList()
+                ApiResult.Success(dtos.map { dto ->
+                    com.example.model.Address(
+                        id = dto.id,
+                        name = dto.title,
+                        details = dto.fullAddress + (if (dto.buildingDetails != null) ", ${dto.buildingDetails}" else ""),
+                        isDefault = dto.isDefault,
+                        lat = dto.latitude,
+                        lng = dto.longitude
+                    )
+                })
+            } else {
+                ApiResult.Error("Failed to fetch addresses (${response.code()})", response.code())
+            }
+        } catch (e: Exception) {
+            Log.e(TAG, "getAddresses error", e)
+            ApiResult.Error(e.message ?: "Network error")
+        }
+    }
+
+    suspend fun createAddress(request: com.example.data.api.CreateAddressRequest): ApiResult<com.example.model.Address> {
+        return try {
+            val response = api.createAddress(request)
+            if (response.isSuccessful) {
+                val dto = response.body()?.data
+                if (dto != null) {
+                    ApiResult.Success(
+                        com.example.model.Address(
+                            id = dto.id,
+                            name = dto.title,
+                            details = dto.fullAddress + (if (dto.buildingDetails != null) ", ${dto.buildingDetails}" else ""),
+                            isDefault = dto.isDefault,
+                            lat = dto.latitude,
+                            lng = dto.longitude
+                        )
+                    )
+                } else {
+                    ApiResult.Error("Address created but no data returned")
+                }
+            } else {
+                ApiResult.Error("Failed to create address (${response.code()})", response.code())
+            }
+        } catch (e: Exception) {
+            Log.e(TAG, "createAddress error", e)
+            ApiResult.Error(e.message ?: "Network error")
+        }
+    }
+
+    suspend fun deleteAddress(id: String): ApiResult<Unit> {
+        return try {
+            val response = api.deleteAddress(id)
+            if (response.isSuccessful) {
+                ApiResult.Success(Unit)
+            } else {
+                ApiResult.Error("Failed to delete address (${response.code()})", response.code())
+            }
+        } catch (e: Exception) {
+            Log.e(TAG, "deleteAddress error", e)
+            ApiResult.Error(e.message ?: "Network error")
+        }
+    }
+}

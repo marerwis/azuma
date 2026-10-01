@@ -7,8 +7,8 @@ data class Address(
     val cityCountry: String = "بنغازي، ليبيا",
     val details: String = "",
     val isDefault: Boolean = false,
-    val lat: Double = 32.1194,
-    val lng: Double = 20.0868
+    val lat: Double? = null,
+    val lng: Double? = null
 )
 
 data class WalletTransaction(

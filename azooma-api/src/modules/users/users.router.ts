@@ -7,6 +7,7 @@ import {
   updateMe,
   changeRole,
   setStatus,
+  changePassword,
 } from './users.controller';
 
 const router = Router();
@@ -15,8 +16,9 @@ const router = Router();
 router.use(authenticate);
 
 // ── Own profile ────────────────────────────────────────────────────────────
-router.get('/me', getMe);                         // Any authenticated user
-router.patch('/me', updateMe);                    // Any authenticated user
+router.get('/me', getMe);                              // Any authenticated user
+router.patch('/me', updateMe);                         // Any authenticated user
+router.post('/me/change-password', changePassword);    // Any authenticated user
 
 // ── Admin-only routes ──────────────────────────────────────────────────────
 router.get('/', requireRole('admin'), listUsers);

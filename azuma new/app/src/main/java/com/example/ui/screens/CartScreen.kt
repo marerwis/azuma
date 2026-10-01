@@ -37,7 +37,7 @@ import com.example.ui.theme.*
 @Composable
 fun CartScreen(
     cartState: CartState,
-    recommendedItems: List<MenuItem>,
+    recommendations: List<MenuItem> = emptyList(),
     onBackClick: () -> Unit,
     onAddToCart: (MenuItem) -> Unit,
     onRemoveFromCart: (MenuItem) -> Unit,
@@ -361,7 +361,7 @@ fun CartScreen(
                     modifier = Modifier.padding(horizontal = 20.dp, vertical = 6.dp)
                 )
 
-                val recommendations = recommendedItems.filter { it.isPopular }.take(4)
+                val recommendations = recommendations.filter { it.isPopular }.take(4)
                 LazyRow(
                     modifier = Modifier.fillMaxWidth(),
                     contentPadding = PaddingValues(horizontal = 16.dp),

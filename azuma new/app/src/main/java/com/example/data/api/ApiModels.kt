@@ -151,3 +151,36 @@ data class OrderDto(
     @Json(name = "total_amount") val totalAmount: Double? = null,
     @Json(name = "created_at") val createdAt: String? = null
 )
+
+// ── User Profile ───────────────────────────────────────────────────
+@JsonClass(generateAdapter = true)
+data class UpdateProfileRequest(
+    @Json(name = "full_name") val fullName: String? = null,
+    val phone: String? = null,
+    val email: String? = null
+)
+
+// ── Addresses ─────────────────────────────────────────────────────
+@JsonClass(generateAdapter = true)
+data class AddressDto(
+    val id: String,
+    val title: String,
+    @Json(name = "full_address") val fullAddress: String,
+    @Json(name = "building_details") val buildingDetails: String? = null,
+    @Json(name = "delivery_instructions") val deliveryInstructions: String? = null,
+    @Json(name = "is_default") val isDefault: Boolean = false,
+    val latitude: Double? = null,
+    val longitude: Double? = null,
+    @Json(name = "created_at") val createdAt: String? = null
+)
+
+@JsonClass(generateAdapter = true)
+data class CreateAddressRequest(
+    val title: String,
+    @Json(name = "full_address") val fullAddress: String,
+    @Json(name = "building_details") val buildingDetails: String? = null,
+    @Json(name = "delivery_instructions") val deliveryInstructions: String? = null,
+    @Json(name = "is_default") val isDefault: Boolean = false,
+    val latitude: Double? = null,
+    val longitude: Double? = null
+)

@@ -52,6 +52,7 @@ export async function updateProfile(
   data: {
     full_name?: string;
     phone?: string;
+    email?: string;
     avatar_url?: string;
     fcm_token?: string;
   }

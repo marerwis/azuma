@@ -59,4 +59,5 @@ class SessionManager(private val context: Context) {
     suspend fun clear() {
         context.sessionDataStore.edit { it.clear() }
     }
+
 }

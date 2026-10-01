@@ -59,6 +59,23 @@ interface AzoomaApiService {
     // ── Orders ────────────────────────────────────────────────────────
     @POST("api/v1/orders")
     suspend fun createOrder(@Body request: CreateOrderRequest): Response<ApiResponse<OrderDto>>
+
+    // ── User Profile ──────────────────────────────────────────────────
+    @GET("api/v1/users/me")
+    suspend fun getMe(): Response<ApiResponse<UserDto>>
+
+    @PATCH("api/v1/users/me")
+    suspend fun updateProfile(@Body request: UpdateProfileRequest): Response<ApiResponse<UserDto>>
+
+    // ── Addresses ─────────────────────────────────────────────────────
+    @GET("api/v1/addresses")
+    suspend fun getAddresses(): Response<ApiResponse<List<AddressDto>>>
+
+    @POST("api/v1/addresses")
+    suspend fun createAddress(@Body request: CreateAddressRequest): Response<ApiResponse<AddressDto>>
+
+    @DELETE("api/v1/addresses/{id}")
+    suspend fun deleteAddress(@Path("id") id: String): Response<ApiResponse<Unit>>
 }
 
 // ── Auth Interceptor — injects Bearer token on every request ────────────────

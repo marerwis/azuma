@@ -28,9 +28,19 @@ import com.example.ui.theme.*
 fun AccountScreen(
     userName: String = "مرعي زلاوي",
     userPhone: String = "+218-914333564",
+    selectedCountry: String = "ليبيا",
+    onWalletClick: () -> Unit,
+    onHelpClick: () -> Unit,
     onFavoritesClick: () -> Unit,
     onAddressesClick: () -> Unit,
-    onWalletClick: () -> Unit,
+    onCouponsClick: () -> Unit,
+    onPersonalInfoClick: () -> Unit,
+    onCountryClick: () -> Unit,
+    onLanguageDisplayClick: () -> Unit,
+    onFeedbackClick: () -> Unit,
+    onTermsClick: () -> Unit,
+    onAboutClick: () -> Unit,
+    onRateUsClick: () -> Unit,
     onNotificationClick: () -> Unit,
     onLogoutClick: () -> Unit,
     modifier: Modifier = Modifier
@@ -128,7 +138,8 @@ fun AccountScreen(
             }
         }
 
-        // 3 Quick Action Cards: المفضلة, عناويني, المحفظة (Matching Screenshot 8)
+        // 3 Quick Action Cards: المحفظة, المساعدة, المفضلة (Matching Screenshots 3 & 4)
+        // In RTL, first child appears on the right
         item {
             Spacer(modifier = Modifier.height(14.dp))
             Row(
@@ -138,26 +149,6 @@ fun AccountScreen(
                 horizontalArrangement = Arrangement.spacedBy(10.dp)
             ) {
                 QuickCardItem(
-                    title = "المفضلة",
-                    icon = Icons.Default.Favorite,
-                    iconTint = AzoomaRed,
-                    bgCircleColor = AzoomaRedLight,
-                    onClick = onFavoritesClick,
-                    modifier = Modifier.weight(1f),
-                    testTag = "account_favorites_btn"
-                )
-
-                QuickCardItem(
-                    title = "عناويني",
-                    icon = Icons.Default.LocationOn,
-                    iconTint = Color(0xFFF59E0B),
-                    bgCircleColor = Color(0xFFFEF3C7),
-                    onClick = onAddressesClick,
-                    modifier = Modifier.weight(1f),
-                    testTag = "account_addresses_btn"
-                )
-
-                QuickCardItem(
                     title = "المحفظة",
                     icon = Icons.Default.AccountBalanceWallet,
                     iconTint = Color(0xFF2563EB),
@@ -166,10 +157,30 @@ fun AccountScreen(
                     modifier = Modifier.weight(1f),
                     testTag = "account_wallet_btn"
                 )
+
+                QuickCardItem(
+                    title = "المساعدة",
+                    icon = Icons.Default.Headphones,
+                    iconTint = AzoomaOrange,
+                    bgCircleColor = AzoomaOrangeLight,
+                    onClick = onHelpClick,
+                    modifier = Modifier.weight(1f),
+                    testTag = "account_help_btn"
+                )
+
+                QuickCardItem(
+                    title = "المفضلة",
+                    icon = Icons.Default.Favorite,
+                    iconTint = AzoomaRed,
+                    bgCircleColor = AzoomaRedLight,
+                    onClick = onFavoritesClick,
+                    modifier = Modifier.weight(1f),
+                    testTag = "account_favorites_btn"
+                )
             }
         }
 
-        // Section: "الحساب و الإعدادات" (Matching Screenshot 8)
+        // Section: "الحساب و الإعدادات" (Matching Screenshots 3, 4, 8)
         item {
             Spacer(modifier = Modifier.height(20.dp))
             Text(
@@ -182,17 +193,40 @@ fun AccountScreen(
             )
 
             AccountMenuListCard {
-                AccountMenuItem(title = "الكوبونات", icon = Icons.Outlined.ConfirmationNumber) {}
-                Divider(color = AzoomaCardBorder, modifier = Modifier.padding(horizontal = 16.dp))
-                AccountMenuItem(title = "المعلومات الشخصية", icon = Icons.Outlined.Person) {}
-                Divider(color = AzoomaCardBorder, modifier = Modifier.padding(horizontal = 16.dp))
-                AccountMenuItem(title = "الدولة", subText = "ليبيا", icon = Icons.Outlined.Public) {}
-                Divider(color = AzoomaCardBorder, modifier = Modifier.padding(horizontal = 16.dp))
-                AccountMenuItem(title = "اللغة وخيارات العرض", icon = Icons.Outlined.Settings) {}
+                AccountMenuItem(
+                    title = "عناويني",
+                    icon = Icons.Outlined.LocationOn,
+                    onClick = onAddressesClick
+                )
+                HorizontalDivider(color = AzoomaCardBorder, modifier = Modifier.padding(horizontal = 16.dp))
+                AccountMenuItem(
+                    title = "الكوبونات",
+                    icon = Icons.Outlined.ConfirmationNumber,
+                    onClick = onCouponsClick
+                )
+                HorizontalDivider(color = AzoomaCardBorder, modifier = Modifier.padding(horizontal = 16.dp))
+                AccountMenuItem(
+                    title = "المعلومات الشخصية",
+                    icon = Icons.Outlined.Person,
+                    onClick = onPersonalInfoClick
+                )
+                HorizontalDivider(color = AzoomaCardBorder, modifier = Modifier.padding(horizontal = 16.dp))
+                AccountMenuItem(
+                    title = "الدولة",
+                    subText = selectedCountry,
+                    icon = Icons.Outlined.Public,
+                    onClick = onCountryClick
+                )
+                HorizontalDivider(color = AzoomaCardBorder, modifier = Modifier.padding(horizontal = 16.dp))
+                AccountMenuItem(
+                    title = "اللغة وخيارات العرض",
+                    icon = Icons.Outlined.Settings,
+                    onClick = onLanguageDisplayClick
+                )
             }
         }
 
-        // Section: "حول عزومة" (Matching Screenshot 9)
+        // Section: "حول عزومة" (Matching Screenshots 4 & 9)
         item {
             Spacer(modifier = Modifier.height(20.dp))
             Text(
@@ -205,13 +239,29 @@ fun AccountScreen(
             )
 
             AccountMenuListCard {
-                AccountMenuItem(title = "شاركنا ملاحظاتك", icon = Icons.Outlined.RateReview) {}
-                Divider(color = AzoomaCardBorder, modifier = Modifier.padding(horizontal = 16.dp))
-                AccountMenuItem(title = "الأحكام والشروط", icon = Icons.Outlined.Description) {}
-                Divider(color = AzoomaCardBorder, modifier = Modifier.padding(horizontal = 16.dp))
-                AccountMenuItem(title = "عن التطبيق", icon = Icons.Outlined.Info) {}
-                Divider(color = AzoomaCardBorder, modifier = Modifier.padding(horizontal = 16.dp))
-                AccountMenuItem(title = "قيّمنا 🧡", icon = Icons.Outlined.StarOutline) {}
+                AccountMenuItem(
+                    title = "شاركنا ملاحظاتك",
+                    icon = Icons.Outlined.RateReview,
+                    onClick = onFeedbackClick
+                )
+                HorizontalDivider(color = AzoomaCardBorder, modifier = Modifier.padding(horizontal = 16.dp))
+                AccountMenuItem(
+                    title = "الأحكام والشروط",
+                    icon = Icons.Outlined.Description,
+                    onClick = onTermsClick
+                )
+                HorizontalDivider(color = AzoomaCardBorder, modifier = Modifier.padding(horizontal = 16.dp))
+                AccountMenuItem(
+                    title = "عن التطبيق",
+                    icon = Icons.Outlined.Info,
+                    onClick = onAboutClick
+                )
+                HorizontalDivider(color = AzoomaCardBorder, modifier = Modifier.padding(horizontal = 16.dp))
+                AccountMenuItem(
+                    title = "قيّمنا 🧡",
+                    icon = Icons.Outlined.StarOutline,
+                    onClick = onRateUsClick
+                )
             }
         }
 

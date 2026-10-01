@@ -46,3 +46,6 @@ app.*.map.json
 *.apk
 google-services.json
 my-upload-key.jks
+
+*.rar
+*.zip

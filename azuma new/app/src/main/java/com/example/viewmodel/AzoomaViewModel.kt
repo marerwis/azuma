@@ -43,7 +43,16 @@ enum class SubScreen {
     WALLET,
     ADDRESSES,
     NOTIFICATIONS,
-    OFFERS
+    OFFERS,
+    // Account sub-screens
+    FAVORITES,
+    HELP,
+    COUPONS,
+    PERSONAL_INFO,
+    COUNTRY_SELECT,
+    LANGUAGE_DISPLAY,
+    ABOUT,
+    TERMS
 }
 
 data class UiState(
@@ -72,6 +81,7 @@ data class UiState(
     // Legacy display fields kept for UI compatibility
     val userName: String = "مرعي زلاوي",
     val userPhone: String = "+218-914333564",
+    val userEmail: String = "",
 
     // ── Navigation ────────────────────────────────────────────────────────────
     val currentTab: BottomTab = BottomTab.HOME,
@@ -100,7 +110,21 @@ data class UiState(
     val showAddressPickerSheet: Boolean = false,
     val showOrderSuccessDialog: Boolean = false,
     val trackingProgress: Float = 0.65f,
-    val trackingEtaMinutes: Int = 14
+    val trackingEtaMinutes: Int = 14,
+    // ── Account settings ──────────────────────────────────────────────────────
+    val activeCoupons: List<String> = emptyList(),
+    val selectedCountry: String = "ليبيا",
+    val selectedLanguage: String = "العربية",
+    val selectedThemeMode: String = "فاتح",
+    // ── Profile save state ────────────────────────────────────────────────────
+    val isProfileSaving: Boolean = false,
+    val profileSaveError: String? = null,
+    val profileSaveSuccess: Boolean = false,
+    // ── Sheet / dialog toggles ────────────────────────────────────────────────
+    val showLocationConfirmSheet: Boolean = false,
+    val showFeedbackSheet: Boolean = false,
+    val showRateUsDialog: Boolean = false,
+    val showAppSelectorSheet: Boolean = false
 )
 
 class AzoomaViewModel(application: Application) : AndroidViewModel(application) {
@@ -133,6 +157,7 @@ class AzoomaViewModel(application: Application) : AndroidViewModel(application) 
             try {
                 val savedSession = sessionManager.sessionFlow.first()
                 val savedToken   = sessionManager.firebaseTokenFlow.first()
+                
                 if (savedSession != null && savedToken != null) {
                     _idToken = savedToken
                     // Re-inject Supabase JWT for Realtime if it was saved
@@ -145,9 +170,12 @@ class AzoomaViewModel(application: Application) : AndroidViewModel(application) 
                             userSession     = savedSession,
                             userName        = savedSession.fullName.ifBlank { "مستخدم" },
                             userPhone       = savedSession.phone ?: "",
+                            userEmail       = savedSession.email ?: "",
                             isSessionLoading = false
                         )
                     }
+                    // Fetch fresh addresses from API
+                    fetchAddresses()
                 } else {
                     _uiState.update { it.copy(isSessionLoading = false) }
                 }
@@ -249,10 +277,13 @@ class AzoomaViewModel(application: Application) : AndroidViewModel(application) 
                             userSession = session,
                             userName = session.fullName.ifBlank { fullName ?: "مستخدم" },
                             userPhone = session.phone ?: "",
+                            userEmail = session.email ?: "",
                             currentTab = BottomTab.HOME,
                             currentSubScreen = SubScreen.NONE
                         )
                     }
+                    
+                    fetchAddresses()
                 }
                 is ApiResult.Error -> {
                     _uiState.update {
@@ -400,6 +431,24 @@ class AzoomaViewModel(application: Application) : AndroidViewModel(application) 
     fun showLogoutDialog(show: Boolean) { _uiState.update { it.copy(showLogoutDialog = show) } }
     fun showAddressPicker(show: Boolean) { _uiState.update { it.copy(showAddressPickerSheet = show) } }
 
+    fun fetchAddresses() {
+        viewModelScope.launch {
+            if (_idToken == null) return@launch
+            when (val result = repository.getAddresses()) {
+                is ApiResult.Success -> {
+                    val addrs = result.data
+                    _uiState.update { state ->
+                        state.copy(
+                            addresses = addrs,
+                            currentAddress = addrs.find { it.isDefault } ?: addrs.firstOrNull() ?: state.currentAddress
+                        )
+                    }
+                }
+                is ApiResult.Error -> { }
+            }
+        }
+    }
+
     fun selectAddress(address: Address) {
         _uiState.update { state ->
             val updated = state.addresses.map { it.copy(isDefault = it.id == address.id) }
@@ -408,28 +457,37 @@ class AzoomaViewModel(application: Application) : AndroidViewModel(application) 
     }
 
     fun saveNewAddress(name: String, details: String) {
-        val newAddr = Address(
-            id = "addr_${System.currentTimeMillis()}",
-            name = name.ifBlank { "عنوان جديد" },
-            areaCode = "436G+585",
-            cityCountry = "بنغازي، ليبيا",
-            details = details,
-            isDefault = true
-        )
-        _uiState.update { state ->
-            val updated = state.addresses.map { it.copy(isDefault = false) } + newAddr
-            state.copy(addresses = updated, currentAddress = newAddr, showAddressPickerSheet = false)
+        viewModelScope.launch {
+            _uiState.update { it.copy(isLoadingData = true) }
+            val req = com.example.data.api.CreateAddressRequest(
+                title = name.ifBlank { "عنوان جديد" },
+                fullAddress = details,
+                isDefault = true
+            )
+            when (val result = repository.createAddress(req)) {
+                is ApiResult.Success -> {
+                    fetchAddresses()
+                    _uiState.update { it.copy(isLoadingData = false, showAddressPickerSheet = false) }
+                }
+                is ApiResult.Error -> {
+                    _uiState.update { it.copy(isLoadingData = false) }
+                }
+            }
         }
     }
 
     fun deleteAddress(id: String) {
-        _uiState.update { state ->
-            val remaining = state.addresses.filterNot { it.id == id }
-            val nextDefault = remaining.firstOrNull() ?: Address("addr_0", "الرئيسي", "436G+585", "بنغازي، ليبيا", isDefault = true)
-            state.copy(
-                addresses = remaining,
-                currentAddress = if (state.currentAddress.id == id) nextDefault else state.currentAddress
-            )
+        viewModelScope.launch {
+            _uiState.update { it.copy(isLoadingData = true) }
+            when (val result = repository.deleteAddress(id)) {
+                is ApiResult.Success -> {
+                    fetchAddresses()
+                    _uiState.update { it.copy(isLoadingData = false) }
+                }
+                is ApiResult.Error -> {
+                    _uiState.update { it.copy(isLoadingData = false) }
+                }
+            }
         }
     }
 
@@ -644,6 +702,67 @@ class AzoomaViewModel(application: Application) : AndroidViewModel(application) 
 
     // ── Auth sheet helpers ────────────────────────────────────────────────────
 
+    /** Fetches the latest profile from the server and refreshes UiState. Called on PersonalInfo screen open. */
+    fun fetchProfile() {
+        viewModelScope.launch {
+            if (_idToken == null) return@launch
+            when (val result = repository.getMe()) {
+                is ApiResult.Success -> {
+                    val s = result.data
+                    // Persist refreshed session
+                    try { sessionManager.save(s, _idToken ?: "") } catch (e: Exception) {}
+                    _uiState.update {
+                        it.copy(
+                            userSession = s,
+                            userName = s.fullName,
+                            userPhone = s.phone ?: "",
+                            userEmail = s.email ?: ""
+                        )
+                    }
+                }
+                is ApiResult.Error -> android.util.Log.w("ViewModel", "fetchProfile: ${result.message}")
+            }
+        }
+    }
+
+    fun updateProfile(name: String, phone: String, email: String) {
+        viewModelScope.launch {
+            _uiState.update { it.copy(isProfileSaving = true, profileSaveError = null, profileSaveSuccess = false) }
+            val cleanPhone = if (phone.startsWith("+218")) phone else "+218-$phone"
+
+            when (val result = repository.updateProfile(fullName = name.trim(), phone = cleanPhone, email = email.trim().ifBlank { null })) {
+                is ApiResult.Success -> {
+                    val updatedSession = result.data
+                    // Preserve the Supabase token from the existing session
+                    val sessionToSave = updatedSession.copy(supabaseToken = _uiState.value.userSession?.supabaseToken)
+                    try { sessionManager.save(sessionToSave, _idToken ?: "") } catch (e: Exception) {}
+
+                    _uiState.update {
+                        it.copy(
+                            isProfileSaving = false,
+                            profileSaveSuccess = true,
+                            profileSaveError = null,
+                            userSession = sessionToSave,
+                            userName = sessionToSave.fullName,
+                            userPhone = sessionToSave.phone ?: "",
+                            userEmail = sessionToSave.email ?: ""
+                        )
+                    }
+                }
+                is ApiResult.Error -> {
+                    android.util.Log.e("ViewModel", "Failed to update profile: ${result.message}")
+                    _uiState.update {
+                        it.copy(isProfileSaving = false, profileSaveError = result.message)
+                    }
+                }
+            }
+        }
+    }
+
+    fun clearProfileSaveState() {
+        _uiState.update { it.copy(profileSaveSuccess = false, profileSaveError = null) }
+    }
+
     fun startRegister() { _uiState.update { it.copy(showAuthSheet = true, authMode = "REGISTER") } }
     fun startLogin() { _uiState.update { it.copy(showAuthSheet = true, authMode = "LOGIN") } }
     fun dismissAuthSheet() { _uiState.update { it.copy(showAuthSheet = false, authError = null) } }
@@ -692,5 +811,22 @@ class AzoomaViewModel(application: Application) : AndroidViewModel(application) 
                 isSessionLoading = false
             )
         }
+    }
+
+    // ── Sheet / Dialog Toggles ────────────────────────────────────────────────
+
+    fun showLocationConfirmSheet(show: Boolean) { _uiState.update { it.copy(showLocationConfirmSheet = show) } }
+    fun showFeedbackSheet(show: Boolean)     { _uiState.update { it.copy(showFeedbackSheet = show) } }
+    fun showRateUsDialog(show: Boolean)      { _uiState.update { it.copy(showRateUsDialog = show) } }
+    fun showAppSelectorSheet(show: Boolean)  { _uiState.update { it.copy(showAppSelectorSheet = show) } }
+
+    // ── Account / Settings ────────────────────────────────────────────────────
+
+    fun selectCountry(country: String)   { _uiState.update { it.copy(selectedCountry = country) } }
+    fun selectLanguage(language: String) { _uiState.update { it.copy(selectedLanguage = language) } }
+    fun selectThemeMode(mode: String)    { _uiState.update { it.copy(selectedThemeMode = mode) } }
+    fun addCoupon(code: String): Boolean {
+        _uiState.update { it.copy(activeCoupons = it.activeCoupons + code) }
+        return true
     }
 }
