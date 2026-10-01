@@ -46,6 +46,7 @@ class StoresScreen extends ConsumerWidget {
                     DataColumn(label: Text('العنوان')),
                     DataColumn(label: Text('العمولة (%)')),
                     DataColumn(label: Text('أوقات العمل')),
+                    DataColumn(label: Text('الدفع كاش')),
                     DataColumn(label: Text('الحالة')),
                     DataColumn(label: Text('الإجراءات')),
                   ],
@@ -72,6 +73,12 @@ class StoresScreen extends ConsumerWidget {
                         DataCell(Text(store['address'] ?? '')),
                         DataCell(Text(store['commission_rate']?.toString() ?? '10.0')),
                         DataCell(Text('${store['opening_time'] ?? '--:--'} - ${store['closing_time'] ?? '--:--'}')),
+                        DataCell(
+                          Chip(
+                            label: Text(store['accepts_cash'] != false ? 'متاح' : 'غير متاح', style: const TextStyle(color: Colors.white, fontSize: 12)),
+                            backgroundColor: store['accepts_cash'] != false ? Colors.teal : Colors.blueGrey,
+                          ),
+                        ),
                         DataCell(
                           Chip(
                             label: Text(isOpen ? 'مفتوح' : 'مغلق', style: const TextStyle(color: Colors.white)),
@@ -163,6 +170,7 @@ class _AddEditStoreDialogState extends State<_AddEditStoreDialog> {
   late TextEditingController _imageUrlController;
   bool _isActive = true;
   bool _isOpen = true;
+  bool _acceptsCash = true;
   bool _isLoading = false;
   bool _isUploading = false;
   final ImagePicker _picker = ImagePicker();
@@ -179,6 +187,7 @@ class _AddEditStoreDialogState extends State<_AddEditStoreDialog> {
     _imageUrlController = TextEditingController(text: widget.store?['image_url'] ?? '');
     _isActive = widget.store?['is_active'] ?? true;
     _isOpen = widget.store?['is_open'] ?? true;
+    _acceptsCash = widget.store?['accepts_cash'] ?? true;
   }
 
   @override
@@ -270,6 +279,12 @@ class _AddEditStoreDialogState extends State<_AddEditStoreDialog> {
                   value: _isOpen,
                   onChanged: (val) => setState(() => _isOpen = val),
                 ),
+                SwitchListTile(
+                  title: const Text('قبول الدفع نقداً (Cash on Delivery)'),
+                  subtitle: const Text('تمكين خيار الدفع كاش عند الاستلام لهذا المطعم'),
+                  value: _acceptsCash,
+                  onChanged: (val) => setState(() => _acceptsCash = val),
+                ),
               ],
             ),
           ),
@@ -299,6 +314,7 @@ class _AddEditStoreDialogState extends State<_AddEditStoreDialog> {
           'closing_time': _closingTimeController.text,
           'is_active': _isActive,
           'is_open': _isOpen,
+          'accepts_cash': _acceptsCash,
           // Defaults for latitude/longitude as admin usually sets address and a map picker sets coords
           'latitude': 32.115,
           'longitude': 20.082,

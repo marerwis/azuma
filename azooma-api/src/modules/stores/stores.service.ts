@@ -29,6 +29,7 @@ export async function getAllStores(filters: {
       longitude: true,
       delivery_radius_km: true,
       commission_rate: true,
+      accepts_cash: true,
       is_active: true,
       is_open: true,
       opening_time: true,
@@ -53,6 +54,7 @@ export async function getStoreById(id: string) {
       latitude: true,
       longitude: true,
       delivery_radius_km: true,
+      accepts_cash: true,
       is_active: true,
       is_open: true,
       opening_time: true,
@@ -96,6 +98,7 @@ export async function createStore(data: {
   app_category_id?: string;
   delivery_radius_km?: number;
   commission_rate?: number;
+  accepts_cash?: boolean;
 }) {
   const result = await prisma.stores.create({ data });
   // Bust all stores list caches (they differ by filter, use pattern delete via SCAN)
@@ -115,6 +118,7 @@ export async function updateStore(
     longitude?: number;
     app_category_id?: string;
     delivery_radius_km?: number;
+    accepts_cash?: boolean;
     is_active?: boolean;
     is_open?: boolean;
     opening_time?: Date;

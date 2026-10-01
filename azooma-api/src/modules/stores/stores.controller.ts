@@ -15,6 +15,7 @@ const createStoreSchema = z.object({
   app_category_id: z.string().uuid().optional(),
   delivery_radius_km: z.number().optional(),
   commission_rate: z.number().optional(),
+  accepts_cash: z.boolean().optional(),
 });
 
 const updateStoreSchema = createStoreSchema
