@@ -19,8 +19,10 @@ import androidx.compose.ui.platform.LocalLayoutDirection
 import androidx.compose.ui.unit.LayoutDirection
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.lifecycle.viewmodel.compose.viewModel
+import androidx.compose.foundation.layout.Column
 import com.example.ui.components.*
 import com.example.ui.screens.*
+import com.example.model.OrderStatus
 import com.example.ui.theme.MyApplicationTheme
 import com.example.viewmodel.AzoomaViewModel
 import com.example.viewmodel.BottomTab
@@ -82,11 +84,21 @@ fun AzoomaApp(viewModel: AzoomaViewModel = viewModel()) {
         modifier = Modifier.fillMaxSize(),
         bottomBar = {
             if (showBottomBar) {
-                AzoomaBottomNav(
-                    currentTab = uiState.currentTab,
-                    cartItemCount = uiState.cartState.totalItemCount,
-                    onTabSelected = { viewModel.selectTab(it) }
-                )
+                Column {
+                    uiState.activeTrackingOrder?.let { activeOrder ->
+                        if (activeOrder.status != OrderStatus.DELIVERED && activeOrder.status != OrderStatus.CANCELLED) {
+                            ActiveOrderFloatingBar(
+                                order = activeOrder,
+                                onClick = { viewModel.trackOrder(activeOrder) }
+                            )
+                        }
+                    }
+                    AzoomaBottomNav(
+                        currentTab = uiState.currentTab,
+                        cartItemCount = uiState.cartState.totalItemCount,
+                        onTabSelected = { viewModel.selectTab(it) }
+                    )
+                }
             }
         },
         snackbarHost = { SnackbarHost(snackbarHostState) }
@@ -140,15 +152,29 @@ fun AzoomaApp(viewModel: AzoomaViewModel = viewModel()) {
                 }
 
                 SubScreen.ORDER_TRACKING -> {
-                    val order = uiState.activeTrackingOrder ?: uiState.orders.first()
-                    OrderTrackingScreen(
-                        order = order,
-                        driverProgress = uiState.trackingProgress,
-                        etaMinutes = uiState.trackingEtaMinutes,
-                        onBackClick = { viewModel.navigateBack() },
-                        onCallDriver = {
-                            Toast.makeText(context, "جارٍ الاتصال بالسائق ${order.driverName}...", Toast.LENGTH_SHORT).show()
-                        }
+                    val order = uiState.activeTrackingOrder ?: uiState.orders.firstOrNull()
+                    if (order != null) {
+                        OrderTrackingScreen(
+                            order = order,
+                            driverProgress = uiState.trackingProgress,
+                            etaMinutes = uiState.trackingEtaMinutes,
+                            onBackClick = { viewModel.navigateBack() },
+                            onCallDriver = {
+                                Toast.makeText(context, "جارٍ الاتصال بالسائق ${order.driverName}...", Toast.LENGTH_SHORT).show()
+                            },
+                            onChatDriver = { viewModel.openDriverChat() },
+                            onAdvanceStatus = { viewModel.advanceOrderStatusSimulated() },
+                            onVerifyDeliveryCode = { code -> viewModel.verifyDeliveryOtp(order.id, code) },
+                            onReorderClick = { viewModel.reorder(order) }
+                        )
+                    }
+                }
+
+                SubScreen.DRIVER_CHAT -> {
+                    val order = uiState.activeTrackingOrder ?: uiState.orders.firstOrNull()
+                    DriverChatScreen(
+                        driverName = order?.driverName ?: "أحمد المسماري",
+                        onBackClick = { viewModel.navigateBack() }
                     )
                 }
 

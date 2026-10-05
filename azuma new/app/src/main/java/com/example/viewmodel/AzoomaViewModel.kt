@@ -40,6 +40,7 @@ enum class SubScreen {
     STORE_PROFILE,
     CHECKOUT,
     ORDER_TRACKING,
+    DRIVER_CHAT,
     WALLET,
     ADDRESSES,
     NOTIFICATIONS,
@@ -323,6 +324,10 @@ class AzoomaViewModel(application: Application) : AndroidViewModel(application) 
 
     fun navigateBack(): Boolean {
         val currentSub = _uiState.value.currentSubScreen
+        if (currentSub == SubScreen.DRIVER_CHAT) {
+            _uiState.update { it.copy(currentSubScreen = SubScreen.ORDER_TRACKING) }
+            return true
+        }
         if (currentSub != SubScreen.NONE) {
             _uiState.update { it.copy(currentSubScreen = SubScreen.NONE) }
             return true
@@ -635,28 +640,80 @@ class AzoomaViewModel(application: Application) : AndroidViewModel(application) 
         _uiState.update { state -> state.copy(recentSearches = state.recentSearches.filterNot { it == query }) }
     }
 
+    fun openDriverChat() {
+        _uiState.update { it.copy(currentSubScreen = SubScreen.DRIVER_CHAT) }
+    }
+
+    fun advanceOrderStatusSimulated() {
+        _uiState.update { state ->
+            val active = state.activeTrackingOrder ?: return@update state
+            val nextStatus = when (active.status) {
+                OrderStatus.PENDING -> OrderStatus.ACCEPTED
+                OrderStatus.ACCEPTED -> OrderStatus.PREPARING
+                OrderStatus.PREPARING -> OrderStatus.AT_RESTAURANT
+                OrderStatus.AT_RESTAURANT -> OrderStatus.ON_THE_WAY
+                OrderStatus.ON_THE_WAY -> OrderStatus.DELIVERED
+                OrderStatus.DELIVERED -> OrderStatus.DELIVERED
+                OrderStatus.CANCELLED -> OrderStatus.PENDING
+            }
+            val nextProgress = when (nextStatus) {
+                OrderStatus.PENDING -> 0.05f
+                OrderStatus.ACCEPTED -> 0.20f
+                OrderStatus.PREPARING -> 0.40f
+                OrderStatus.AT_RESTAURANT -> 0.60f
+                OrderStatus.ON_THE_WAY -> 0.85f
+                OrderStatus.DELIVERED -> 1.0f
+                OrderStatus.CANCELLED -> 0.0f
+            }
+            val updatedOrder = active.copy(status = nextStatus)
+            state.copy(
+                activeTrackingOrder = updatedOrder,
+                orders = state.orders.map { if (it.id == active.id) updatedOrder else it },
+                trackingProgress = nextProgress,
+                trackingEtaMinutes = if (nextStatus == OrderStatus.DELIVERED) 0 else (state.trackingEtaMinutes - 3).coerceAtLeast(1)
+            )
+        }
+    }
+
+    fun verifyDeliveryOtp(orderId: String, code: String) {
+        viewModelScope.launch {
+            _uiState.update { state ->
+                val active = state.activeTrackingOrder
+                if (active != null) {
+                    val updated = active.copy(status = OrderStatus.DELIVERED)
+                    state.copy(
+                        activeTrackingOrder = updated,
+                        orders = state.orders.map { if (it.id == active.id) updated else it },
+                        trackingProgress = 1.0f,
+                        trackingEtaMinutes = 0
+                    )
+                } else state
+            }
+        }
+    }
+
     fun trackOrder(order: Order) {
         _uiState.update { it.copy(activeTrackingOrder = order, currentSubScreen = SubScreen.ORDER_TRACKING) }
         
-        // Only subscribe if we are authenticated with Supabase
-        if (_uiState.value.userSession?.supabaseToken != null) {
-            subscribeToOrderUpdates(order.id)
-        }
+        // Subscribe to Supabase Realtime updates for live status changes
+        subscribeToOrderUpdates(order.id)
     }
 
     private fun subscribeToOrderUpdates(orderId: String) {
         val channel = supabase.channel("order-$orderId")
-        val cleanOrderId = orderId.replace("ord_", "") // If orderId matches the UUID in DB
+        val cleanOrderId = orderId.replace("ord_", "")
         
         channel.postgresChangeFlow<PostgresAction.Update>(schema = "public") {
             table = "orders"
             filter("id", io.github.jan.supabase.postgrest.query.filter.FilterOperator.EQ, cleanOrderId)
         }.onEach { change ->
             val newStatus = change.record["status"]?.toString() ?: return@onEach
-            val mappedStatus = when (newStatus) {
-                "accepted" -> OrderStatus.ACCEPTED
+            val mappedStatus = when (newStatus.lowercase()) {
+                "pending" -> OrderStatus.PENDING
+                "accepted", "confirmed" -> OrderStatus.ACCEPTED
                 "preparing" -> OrderStatus.PREPARING
-                "on_the_way" -> OrderStatus.ON_THE_WAY
+                "at_restaurant", "ready" -> OrderStatus.AT_RESTAURANT
+                "on_the_way", "picked_up" -> OrderStatus.ON_THE_WAY
                 "delivered" -> OrderStatus.DELIVERED
                 "cancelled" -> OrderStatus.CANCELLED
                 else -> OrderStatus.ACCEPTED
@@ -664,18 +721,22 @@ class AzoomaViewModel(application: Application) : AndroidViewModel(application) 
             
             _uiState.update { state ->
                 val activeOrder = state.activeTrackingOrder
-                if (activeOrder != null && activeOrder.id == orderId) {
+                if (activeOrder != null && (activeOrder.id == orderId || activeOrder.id == cleanOrderId)) {
                     val newProgress = when (mappedStatus) {
-                        OrderStatus.ACCEPTED -> 0.1f
-                        OrderStatus.PREPARING -> 0.3f
-                        OrderStatus.ON_THE_WAY -> 0.8f
+                        OrderStatus.PENDING -> 0.05f
+                        OrderStatus.ACCEPTED -> 0.20f
+                        OrderStatus.PREPARING -> 0.40f
+                        OrderStatus.AT_RESTAURANT -> 0.60f
+                        OrderStatus.ON_THE_WAY -> 0.85f
                         OrderStatus.DELIVERED -> 1.0f
                         OrderStatus.CANCELLED -> 0.0f
                     }
+                    val updatedOrder = activeOrder.copy(status = mappedStatus)
                     state.copy(
-                        activeTrackingOrder = activeOrder.copy(status = mappedStatus),
+                        activeTrackingOrder = updatedOrder,
+                        orders = state.orders.map { if (it.id == activeOrder.id) updatedOrder else it },
                         trackingProgress = newProgress,
-                        trackingEtaMinutes = if (mappedStatus == OrderStatus.ON_THE_WAY) 10 else state.trackingEtaMinutes
+                        trackingEtaMinutes = if (mappedStatus == OrderStatus.DELIVERED) 0 else (if (mappedStatus == OrderStatus.ON_THE_WAY) 10 else state.trackingEtaMinutes)
                     )
                 } else state
             }
@@ -686,7 +747,7 @@ class AzoomaViewModel(application: Application) : AndroidViewModel(application) 
                 channel.subscribe()
                 android.util.Log.d("Realtime", "Successfully subscribed to order: $orderId")
             } catch (e: Exception) {
-                android.util.Log.e("Realtime", "Failed to subscribe", e)
+                android.util.Log.e("Realtime", "Failed to subscribe to order $orderId", e)
             }
         }
     }
