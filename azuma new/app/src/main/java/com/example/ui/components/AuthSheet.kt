@@ -22,7 +22,6 @@ import androidx.compose.ui.unit.sp
 import androidx.credentials.CredentialManager
 import androidx.credentials.GetCredentialRequest
 import androidx.credentials.exceptions.GetCredentialException
-import com.example.ui.screens.LibyanFlagIcon
 import com.example.ui.theme.*
 import com.google.android.libraries.identity.googleid.GetGoogleIdOption
 import com.google.android.libraries.identity.googleid.GoogleIdTokenCredential
@@ -141,7 +140,7 @@ fun AuthSheet(
                             verticalAlignment = Alignment.CenterVertically,
                             modifier = Modifier.padding(start = 12.dp, end = 4.dp)
                         ) {
-                            LibyanFlagIcon()
+                            Text(text = "🇱🇾", fontSize = 16.sp)
                             Spacer(modifier = Modifier.width(6.dp))
                             Text(
                                 text = "+218",

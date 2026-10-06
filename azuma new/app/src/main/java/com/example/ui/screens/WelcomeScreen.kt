@@ -144,8 +144,8 @@ fun WelcomeScreen(
                     modifier = Modifier.padding(horizontal = 14.dp, vertical = 7.dp),
                     verticalAlignment = Alignment.CenterVertically
                 ) {
-                    // Libyan Flag circle
-                    LibyanFlagIcon()
+                    // Libyan Flag emoji
+                    Text(text = "🇱🇾", fontSize = 16.sp)
 
                     Spacer(modifier = Modifier.width(6.dp))
 
@@ -299,51 +299,4 @@ fun WelcomeScreen(
         }
     }
 }
-
-@Composable
-fun LibyanFlagIcon(modifier: Modifier = Modifier) {
-    // Canvas drawing authentic Libyan Flag circular icon (Red, Black with white crescent/star, Green)
-    Box(
-        modifier = modifier
-            .size(20.dp)
-            .clip(CircleShape)
-    ) {
-        Canvas(modifier = Modifier.fillMaxSize()) {
-            val width = size.width
-            val height = size.height
-
-            // Top stripe (Red)
-            drawRect(
-                color = Color(0xFFE70013),
-                topLeft = Offset(0f, 0f),
-                size = androidx.compose.ui.geometry.Size(width, height * 0.3f)
-            )
-
-            // Middle stripe (Black)
-            drawRect(
-                color = Color(0xFF000000),
-                topLeft = Offset(0f, height * 0.3f),
-                size = androidx.compose.ui.geometry.Size(width, height * 0.4f)
-            )
-
-            // Bottom stripe (Green)
-            drawRect(
-                color = Color(0xFF239E46),
-                topLeft = Offset(0f, height * 0.7f),
-                size = androidx.compose.ui.geometry.Size(width, height * 0.3f)
-            )
-
-            // Center white crescent and star
-            drawCircle(
-                color = Color.White,
-                radius = height * 0.12f,
-                center = Offset(width * 0.5f, height * 0.5f)
-            )
-            drawCircle(
-                color = Color.Black,
-                radius = height * 0.09f,
-                center = Offset(width * 0.54f, height * 0.5f)
-            )
-        }
-    }
 }
