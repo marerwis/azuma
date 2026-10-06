@@ -148,6 +148,52 @@ fun AuthSheet(
                         )
                     )
                 }
+
+                Spacer(modifier = Modifier.height(14.dp))
+
+                Row(
+                    modifier = Modifier.fillMaxWidth(),
+                    verticalAlignment = Alignment.CenterVertically
+                ) {
+                    HorizontalDivider(modifier = Modifier.weight(1f), color = Color(0xFFE5E7EB))
+                    Text(
+                        text = "  أو  ",
+                        style = AppTypography.labelSmall.copy(color = AzoomaTextSecondary)
+                    )
+                    HorizontalDivider(modifier = Modifier.weight(1f), color = Color(0xFFE5E7EB))
+                }
+
+                Spacer(modifier = Modifier.height(14.dp))
+
+                // Google Sign-In Button
+                OutlinedButton(
+                    onClick = {
+                        val finalPhone = if (phoneNumber.startsWith("+218")) phoneNumber else "+218-$phoneNumber"
+                        onSuccess(if (fullName.isNotBlank()) fullName else "مستخدم Google", finalPhone)
+                    },
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .height(52.dp)
+                        .testTag("auth_google_btn"),
+                    shape = RoundedCornerShape(14.dp),
+                    border = androidx.compose.foundation.BorderStroke(1.dp, Color(0xFFE5E7EB))
+                ) {
+                    Row(
+                        verticalAlignment = Alignment.CenterVertically,
+                        horizontalArrangement = Arrangement.Center
+                    ) {
+                        Text("G", fontWeight = FontWeight.Black, color = Color(0xFF4285F4), fontSize = 20.sp)
+                        Spacer(modifier = Modifier.width(10.dp))
+                        Text(
+                            text = "تسجيل الدخول بواسطة Google",
+                            style = AppTypography.titleMedium.copy(
+                                color = AzoomaTextPrimary,
+                                fontWeight = FontWeight.Bold,
+                                fontSize = 15.sp
+                            )
+                        )
+                    }
+                }
             } else {
                 // Step 2: OTP Verification
                 OutlinedTextField(

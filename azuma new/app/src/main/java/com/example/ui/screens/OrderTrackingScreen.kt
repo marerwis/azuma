@@ -140,82 +140,88 @@ private fun DeliveryOrderLifecycleView(
             .fillMaxSize()
             .background(Color(0xFFE9EDF0))
     ) {
-        // 1. Live Interactive City Map Canvas (Upper half of screen)
-        InteractiveMapCanvas(
+    Column(
+        modifier = Modifier.fillMaxSize()
+    ) {
+        // 1. Live Interactive City Map Canvas (Upper section, 40% height)
+        Box(
             modifier = Modifier
                 .fillMaxWidth()
-                .fillMaxHeight(0.48f),
-            driverProgress = driverProgress,
-            showDriver = order.status >= OrderStatus.AT_RESTAURANT,
-            destinationLabel = order.deliveryAddress
-        )
-
-        // 2. Top Floating Navigation Bar (Back + Help Capsule)
-        Row(
-            modifier = Modifier
-                .fillMaxWidth()
-                .statusBarsPadding()
-                .padding(horizontal = 16.dp, vertical = 8.dp),
-            horizontalArrangement = Arrangement.SpaceBetween,
-            verticalAlignment = Alignment.CenterVertically
+                .weight(0.40f)
         ) {
-            Surface(
-                modifier = Modifier
-                    .size(42.dp)
-                    .clip(CircleShape)
-                    .clickable { onBackClick() }
-                    .testTag("delivery_back_btn"),
-                shape = CircleShape,
-                color = Color.White,
-                shadowElevation = 3.dp
-            ) {
-                Box(contentAlignment = Alignment.Center) {
-                    Icon(
-                        imageVector = Icons.AutoMirrored.Filled.KeyboardArrowRight,
-                        contentDescription = "رجوع",
-                        tint = AzoomaTextPrimary,
-                        modifier = Modifier.size(24.dp)
-                    )
-                }
-            }
+            InteractiveMapCanvas(
+                modifier = Modifier.fillMaxSize(),
+                driverProgress = driverProgress,
+                showDriver = order.status >= OrderStatus.AT_RESTAURANT,
+                destinationLabel = order.deliveryAddress
+            )
 
-            Surface(
+            // 2. Top Floating Navigation Bar (Back + Help Capsule)
+            Row(
                 modifier = Modifier
-                    .clip(RoundedCornerShape(20.dp))
-                    .clickable { onHelpClick() }
-                    .testTag("delivery_help_btn"),
-                shape = RoundedCornerShape(20.dp),
-                color = Color.White,
-                shadowElevation = 3.dp
+                    .fillMaxWidth()
+                    .statusBarsPadding()
+                    .padding(horizontal = 16.dp, vertical = 8.dp),
+                horizontalArrangement = Arrangement.SpaceBetween,
+                verticalAlignment = Alignment.CenterVertically
             ) {
-                Row(
-                    modifier = Modifier.padding(horizontal = 14.dp, vertical = 8.dp),
-                    verticalAlignment = Alignment.CenterVertically
+                Surface(
+                    modifier = Modifier
+                        .size(42.dp)
+                        .clip(CircleShape)
+                        .clickable { onBackClick() }
+                        .testTag("delivery_back_btn"),
+                    shape = CircleShape,
+                    color = Color.White,
+                    shadowElevation = 3.dp
                 ) {
-                    Icon(
-                        imageVector = Icons.Default.Info,
-                        contentDescription = null,
-                        tint = AzoomaTextPrimary,
-                        modifier = Modifier.size(16.dp)
-                    )
-                    Spacer(modifier = Modifier.width(6.dp))
-                    Text(
-                        text = "مساعدة",
-                        style = AppTypography.labelLarge.copy(
-                            fontWeight = FontWeight.Bold,
-                            color = AzoomaTextPrimary
+                    Box(contentAlignment = Alignment.Center) {
+                        Icon(
+                            imageVector = Icons.AutoMirrored.Filled.KeyboardArrowRight,
+                            contentDescription = "رجوع",
+                            tint = AzoomaTextPrimary,
+                            modifier = Modifier.size(24.dp)
                         )
-                    )
+                    }
+                }
+
+                Surface(
+                    modifier = Modifier
+                        .clip(RoundedCornerShape(20.dp))
+                        .clickable { onHelpClick() }
+                        .testTag("delivery_help_btn"),
+                    shape = RoundedCornerShape(20.dp),
+                    color = Color.White,
+                    shadowElevation = 3.dp
+                ) {
+                    Row(
+                        modifier = Modifier.padding(horizontal = 14.dp, vertical = 8.dp),
+                        verticalAlignment = Alignment.CenterVertically
+                    ) {
+                        Icon(
+                            imageVector = Icons.Default.Info,
+                            contentDescription = null,
+                            tint = AzoomaTextPrimary,
+                            modifier = Modifier.size(16.dp)
+                        )
+                        Spacer(modifier = Modifier.width(6.dp))
+                        Text(
+                            text = "مساعدة",
+                            style = AppTypography.labelLarge.copy(
+                                fontWeight = FontWeight.Bold,
+                                color = AzoomaTextPrimary
+                            )
+                        )
+                    }
                 }
             }
         }
 
-        // 3. Sliding Bottom Sheet / Tracking Card (Lower ~64% of screen)
+        // 3. Sliding Bottom Sheet / Tracking Card (Lower section, 60% height)
         Surface(
             modifier = Modifier
-                .align(Alignment.BottomCenter)
                 .fillMaxWidth()
-                .fillMaxHeight(0.66f),
+                .weight(0.60f),
             shape = RoundedCornerShape(topStart = 28.dp, topEnd = 28.dp),
             color = Color.White,
             shadowElevation = 8.dp
@@ -765,6 +771,7 @@ private fun DeliveryOrderLifecycleView(
                 }
             }
         }
+    } // end Column
 
         // 11. Top Animated Push Notification Dropdown (Video 02:44)
         AnimatedVisibility(
@@ -849,7 +856,7 @@ private fun DeliveryOrderLifecycleView(
                 }
             )
         }
-    }
+    } // end Box
 }
 
 /**
@@ -1579,77 +1586,83 @@ private fun PickupOrderTrackingView(
             .fillMaxSize()
             .background(Color(0xFFE9EDF0))
     ) {
-        InteractiveMapCanvas(
+    Column(
+        modifier = Modifier.fillMaxSize()
+    ) {
+        Box(
             modifier = Modifier
                 .fillMaxWidth()
-                .fillMaxHeight(0.48f),
-            driverProgress = 0f,
-            showDriver = false,
-            destinationLabel = "الرحبه - شنابو"
-        )
-
-        Row(
-            modifier = Modifier
-                .fillMaxWidth()
-                .statusBarsPadding()
-                .padding(horizontal = 16.dp, vertical = 8.dp),
-            horizontalArrangement = Arrangement.SpaceBetween,
-            verticalAlignment = Alignment.CenterVertically
+                .weight(0.40f)
         ) {
-            Surface(
-                modifier = Modifier
-                    .size(42.dp)
-                    .clip(CircleShape)
-                    .clickable { onBackClick() },
-                shape = CircleShape,
-                color = Color.White,
-                shadowElevation = 3.dp
-            ) {
-                Box(contentAlignment = Alignment.Center) {
-                    Icon(
-                        imageVector = Icons.AutoMirrored.Filled.KeyboardArrowRight,
-                        contentDescription = "رجوع",
-                        tint = AzoomaTextPrimary,
-                        modifier = Modifier.size(24.dp)
-                    )
-                }
-            }
+            InteractiveMapCanvas(
+                modifier = Modifier.fillMaxSize(),
+                driverProgress = 0f,
+                showDriver = false,
+                destinationLabel = "الرحبه - شنابو"
+            )
 
-            Surface(
+            Row(
                 modifier = Modifier
-                    .clip(RoundedCornerShape(20.dp))
-                    .clickable { onHelpClick() },
-                shape = RoundedCornerShape(20.dp),
-                color = Color.White,
-                shadowElevation = 3.dp
+                    .fillMaxWidth()
+                    .statusBarsPadding()
+                    .padding(horizontal = 16.dp, vertical = 8.dp),
+                horizontalArrangement = Arrangement.SpaceBetween,
+                verticalAlignment = Alignment.CenterVertically
             ) {
-                Row(
-                    modifier = Modifier.padding(horizontal = 14.dp, vertical = 8.dp),
-                    verticalAlignment = Alignment.CenterVertically
+                Surface(
+                    modifier = Modifier
+                        .size(42.dp)
+                        .clip(CircleShape)
+                        .clickable { onBackClick() },
+                    shape = CircleShape,
+                    color = Color.White,
+                    shadowElevation = 3.dp
                 ) {
-                    Icon(
-                        imageVector = Icons.Default.Info,
-                        contentDescription = null,
-                        tint = AzoomaTextPrimary,
-                        modifier = Modifier.size(16.dp)
-                    )
-                    Spacer(modifier = Modifier.width(6.dp))
-                    Text(
-                        text = "مساعدة",
-                        style = AppTypography.labelLarge.copy(
-                            fontWeight = FontWeight.Bold,
-                            color = AzoomaTextPrimary
+                    Box(contentAlignment = Alignment.Center) {
+                        Icon(
+                            imageVector = Icons.AutoMirrored.Filled.KeyboardArrowRight,
+                            contentDescription = "رجوع",
+                            tint = AzoomaTextPrimary,
+                            modifier = Modifier.size(24.dp)
                         )
-                    )
+                    }
+                }
+
+                Surface(
+                    modifier = Modifier
+                        .clip(RoundedCornerShape(20.dp))
+                        .clickable { onHelpClick() },
+                    shape = RoundedCornerShape(20.dp),
+                    color = Color.White,
+                    shadowElevation = 3.dp
+                ) {
+                    Row(
+                        modifier = Modifier.padding(horizontal = 14.dp, vertical = 8.dp),
+                        verticalAlignment = Alignment.CenterVertically
+                    ) {
+                        Icon(
+                            imageVector = Icons.Default.Info,
+                            contentDescription = null,
+                            tint = AzoomaTextPrimary,
+                            modifier = Modifier.size(16.dp)
+                        )
+                        Spacer(modifier = Modifier.width(6.dp))
+                        Text(
+                            text = "مساعدة",
+                            style = AppTypography.labelLarge.copy(
+                                fontWeight = FontWeight.Bold,
+                                color = AzoomaTextPrimary
+                            )
+                        )
+                    }
                 }
             }
         }
 
         Surface(
             modifier = Modifier
-                .align(Alignment.BottomCenter)
                 .fillMaxWidth()
-                .fillMaxHeight(0.66f),
+                .weight(0.60f),
             shape = RoundedCornerShape(topStart = 28.dp, topEnd = 28.dp),
             color = Color.White,
             shadowElevation = 8.dp
@@ -1961,6 +1974,7 @@ private fun PickupOrderTrackingView(
                 }
             }
         }
+    } // end Column
 
         AnimatedVisibility(
             visible = activeNotification != null,
@@ -2031,8 +2045,9 @@ private fun PickupOrderTrackingView(
                 }
             }
         }
-    }
+    } // end Box
 }
+
 
 @Composable
 private fun PickupStepperRow(
