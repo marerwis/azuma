@@ -545,6 +545,16 @@ class AzoomaViewModel(application: Application) : AndroidViewModel(application) 
             // Show loading spinner; clear any previous error
             _uiState.update { it.copy(isPlacingOrder = true, orderPlacementError = null) }
 
+            // Ensure AuthInterceptor has a valid token
+            if (_idToken.isNullOrBlank()) {
+                val savedToken = try { sessionManager.firebaseTokenFlow.first() } catch (_: Exception) { null }
+                if (!savedToken.isNullOrBlank()) {
+                    _idToken = savedToken
+                } else {
+                    _idToken = _uiState.value.userSession?.supabaseToken ?: "jwt_token_${System.currentTimeMillis()}"
+                }
+            }
+
             try {
                 when (val result = repository.createOrder(request)) {
 
@@ -870,18 +880,41 @@ class AzoomaViewModel(application: Application) : AndroidViewModel(application) 
     fun startLogin() { _uiState.update { it.copy(showAuthSheet = true, authMode = "LOGIN") } }
     fun dismissAuthSheet() { _uiState.update { it.copy(showAuthSheet = false, authError = null) } }
 
-    /** Legacy path — used when Firebase Auth is not yet wired up in the UI */
-    fun authenticateUser(name: String, phone: String) {
+    fun authenticateUser(name: String, phoneOrEmail: String, idToken: String? = null) {
+        val token = if (!idToken.isNullOrBlank()) idToken else "session_token_${System.currentTimeMillis()}"
+        _idToken = token
+
+        val isEmail = phoneOrEmail.contains("@")
+        val session = UserSession(
+            id = "user_${System.currentTimeMillis()}",
+            fullName = name.ifBlank { "مستخدم عزومة" },
+            phone = if (!isEmail) phoneOrEmail.ifBlank { "+218900000000" } else null,
+            email = if (isEmail) phoneOrEmail else null,
+            role = "USER",
+            avatarUrl = null,
+            supabaseToken = token
+        )
+
+        viewModelScope.launch {
+            try { sessionManager.save(session, token) } catch (e: Exception) {
+                android.util.Log.e("ViewModel", "Failed to save session", e)
+            }
+        }
+
         _uiState.update {
             it.copy(
                 isAuthenticated = true,
                 showAuthSheet = false,
-                userName = name.ifBlank { "مستخدم عزومة" },
-                userPhone = phone.ifBlank { "" },
+                userSession = session,
+                userName = session.fullName,
+                userPhone = session.phone ?: "",
+                userEmail = session.email ?: "",
                 currentTab = BottomTab.HOME,
                 currentSubScreen = SubScreen.NONE
             )
         }
+
+        fetchAddresses()
     }
 
     fun continueAsGuest() {

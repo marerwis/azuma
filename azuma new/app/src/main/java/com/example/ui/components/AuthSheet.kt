@@ -32,7 +32,7 @@ import kotlinx.coroutines.launch
 fun AuthSheet(
     isRegister: Boolean,
     onDismiss: () -> Unit,
-    onSuccess: (name: String, phone: String) -> Unit
+    onSuccess: (name: String, phoneOrEmail: String, idToken: String?) -> Unit
 ) {
     val context = LocalContext.current
     val scope = rememberCoroutineScope()
@@ -59,7 +59,11 @@ fun AuthSheet(
                 val credential = result.credential
                 if (credential.type == GoogleIdTokenCredential.TYPE_GOOGLE_ID_TOKEN_CREDENTIAL) {
                     val googleCred = GoogleIdTokenCredential.createFrom(credential.data)
-                    onSuccess(googleCred.displayName ?: "مستخدم Google", googleCred.id)
+                    onSuccess(
+                        googleCred.displayName ?: "مستخدم Google",
+                        googleCred.id,
+                        googleCred.idToken
+                    )
                 }
             } catch (e: GetCredentialException) {
                 googleError = "حدث خطأ في تسجيل دخول Google"
@@ -266,7 +270,7 @@ fun AuthSheet(
                 Button(
                     onClick = {
                         val finalPhone = if (phoneNumber.startsWith("+218")) phoneNumber else "+218-$phoneNumber"
-                        onSuccess(fullName, finalPhone)
+                        onSuccess(fullName, finalPhone, null)
                     },
                     modifier = Modifier
                         .fillMaxWidth()

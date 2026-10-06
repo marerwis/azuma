@@ -82,9 +82,9 @@ interface AzoomaApiService {
 class AuthInterceptor(private val tokenProvider: () -> String?) : okhttp3.Interceptor {
     override fun intercept(chain: okhttp3.Interceptor.Chain): okhttp3.Response {
         val token = tokenProvider()
-        val request = if (token != null) {
+        val request = if (!token.isNullOrBlank()) {
             chain.request().newBuilder()
-                .addHeader("Authorization", "Bearer $token")
+                .header("Authorization", "Bearer $token")
                 .build()
         } else {
             chain.request()

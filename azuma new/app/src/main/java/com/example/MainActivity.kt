@@ -59,13 +59,13 @@ fun AzoomaApp(viewModel: AzoomaViewModel = viewModel()) {
             onContinueAsGuestClick = { viewModel.continueAsGuest() }
         )
 
-        // Auth Bottom Sheet (Phone + OTP)
+        // Auth Bottom Sheet (Phone + OTP + Google)
         if (uiState.showAuthSheet) {
             AuthSheet(
                 isRegister = uiState.authMode == "REGISTER",
                 onDismiss = { viewModel.dismissAuthSheet() },
-                onSuccess = { name, phone ->
-                    viewModel.authenticateUser(name, phone)
+                onSuccess = { name, phoneOrEmail, idToken ->
+                    viewModel.authenticateUser(name, phoneOrEmail, idToken)
                     Toast.makeText(context, "مرحباً بك في عزومة! تم الدخول بنجاح", Toast.LENGTH_SHORT).show()
                 }
             )
