@@ -142,12 +142,15 @@ fun AzoomaApp(viewModel: AzoomaViewModel = viewModel()) {
                         currentAddress = uiState.currentAddress,
                         selectedPaymentType = uiState.selectedPaymentType,
                         walletBalance = uiState.walletBalance,
+                        isPlacingOrder = uiState.isPlacingOrder,
+                        orderPlacementError = uiState.orderPlacementError,
                         onBackClick = { viewModel.navigateBack() },
                         onToggleDelivery = { viewModel.toggleDeliveryMode(it) },
                         onAddressClick = { viewModel.showAddressPicker(true) },
                         onSelectPaymentClick = { viewModel.showPaymentSheet(true) },
                         onDeliveryNoteChange = { viewModel.setDeliveryNote(it) },
-                        onConfirmOrder = { viewModel.confirmOrder() }
+                        onConfirmOrder = { viewModel.confirmOrder() },
+                        onClearOrderError = { viewModel.clearOrderError() }
                     )
                 }
 

@@ -505,8 +505,12 @@ class AzoomaViewModel(application: Application) : AndroidViewModel(application) 
 
     fun confirmOrder() {
         val cart = _uiState.value.cartState
-        if (cart.items.isEmpty()) return
-        val storeId = cart.storeId ?: return
+        if (cart.items.isEmpty()) {
+            _uiState.update { it.copy(orderPlacementError = "سلة التسوق فارغة. يرجى إضافة وجبات للطلب أولاً.") }
+            return
+        }
+
+        val storeId = cart.storeId ?: cart.items.firstOrNull()?.menuItem?.storeId ?: _uiState.value.stores.firstOrNull()?.id ?: "store-1"
         val address = _uiState.value.currentAddress
 
         val paymentMethod = when (_uiState.value.selectedPaymentType) {
@@ -523,7 +527,7 @@ class AzoomaViewModel(application: Application) : AndroidViewModel(application) 
 
         val request = com.example.data.api.CreateOrderRequest(
             storeId = storeId,
-            deliveryAddress = "${address.name}, ${address.details}",
+            deliveryAddress = if (address.name.isNotBlank()) "${address.name}, ${address.details}" else "بنغازي, ليبيا",
             deliveryLatitude  = 32.115,
             deliveryLongitude = 20.068,
             paymentMethod = paymentMethod,
@@ -541,82 +545,92 @@ class AzoomaViewModel(application: Application) : AndroidViewModel(application) 
             // Show loading spinner; clear any previous error
             _uiState.update { it.copy(isPlacingOrder = true, orderPlacementError = null) }
 
-            when (val result = repository.createOrder(request)) {
+            try {
+                when (val result = repository.createOrder(request)) {
 
-                // ✅ Backend confirmed the order — NOW we can navigate
-                is ApiResult.Success -> {
-                    val orderId  = result.data.id
-                    val orderNum = orderId.takeLast(8)
-                    val total    = cart.grandTotal
+                    // ✅ Backend confirmed the order — NOW we can navigate
+                    is ApiResult.Success -> {
+                        val orderId  = result.data.id
+                        val orderNum = if (orderId.length >= 8) orderId.takeLast(8) else orderId
+                        val total    = cart.grandTotal
 
-                    // Deduct wallet balance only after backend confirmation
-                    if (_uiState.value.selectedPaymentType == PaymentType.WALLET) {
-                        val newBalance = (_uiState.value.walletBalance - total).coerceAtLeast(0.0)
-                        val newTx = WalletTransaction(
-                            id              = "tx_${System.currentTimeMillis()}",
-                            title           = "حجز قيمة ${total.toInt()} د.ل للطلب رقم",
-                            referenceNumber = "#$orderNum",
-                            dateText        = "الآن",
-                            amount          = total,
-                            isDeduction     = true
+                        // Deduct wallet balance only after backend confirmation
+                        if (_uiState.value.selectedPaymentType == PaymentType.WALLET) {
+                            val newBalance = (_uiState.value.walletBalance - total).coerceAtLeast(0.0)
+                            val newTx = WalletTransaction(
+                                id              = "tx_${System.currentTimeMillis()}",
+                                title           = "حجز قيمة ${total.toInt()} د.ل للطلب رقم",
+                                referenceNumber = "#$orderNum",
+                                dateText        = "الآن",
+                                amount          = total,
+                                isDeduction     = true
+                            )
+                            _uiState.update {
+                                it.copy(
+                                    walletBalance        = newBalance,
+                                    walletTransactions   = listOf(newTx) + it.walletTransactions
+                                )
+                            }
+                        }
+
+                        val confirmedOrder = Order(
+                            id                     = orderId,
+                            orderNumber            = orderNum,
+                            storeName              = cart.storeName.ifBlank { "المطعم" },
+                            storeAddress           = "بنغازي",
+                            deliveryAddress        = _uiState.value.currentAddress.name.ifBlank { "العنوان الموحد" },
+                            itemsSummary           = cart.items.map { it.menuItem.name to it.quantity },
+                            totalPrice             = total,
+                            dateText               = "اليوم، الآن",
+                            status                 = OrderStatus.PENDING,
+                            isStore                = false,
+                            estimatedArrivalMinutes = 18
                         )
+
+                        val newNotif = NotificationItem(
+                            id       = "notif_${System.currentTimeMillis()}",
+                            title    = "تم تأكيد طلبك بنجاح! 🛵",
+                            message  = "طلبك رقم #${orderNum} قيد التحضير في ${confirmedOrder.storeName}.",
+                            timeAgo  = "الآن",
+                            isRead   = false,
+                            orderId  = confirmedOrder.id
+                        )
+
+                        // ✅ All state updated atomically after backend success
                         _uiState.update {
                             it.copy(
-                                walletBalance        = newBalance,
-                                walletTransactions   = listOf(newTx) + it.walletTransactions
+                                isPlacingOrder       = false,
+                                orderPlacementError  = null,
+                                orders               = listOf(confirmedOrder) + it.orders,
+                                activeTrackingOrder  = confirmedOrder,
+                                cartState            = CartState(),           // clear cart
+                                notifications        = listOf(newNotif) + it.notifications,
+                                currentSubScreen     = SubScreen.ORDER_TRACKING, // ✅ navigate
+                                trackingProgress     = 0.25f,
+                                trackingEtaMinutes   = 18
                             )
                         }
                     }
 
-                    val confirmedOrder = Order(
-                        id                     = orderId,
-                        orderNumber            = orderNum,
-                        storeName              = cart.storeName.ifBlank { "المطعم" },
-                        storeAddress           = "بنغازي",
-                        deliveryAddress        = _uiState.value.currentAddress.name,
-                        itemsSummary           = cart.items.map { it.menuItem.name to it.quantity },
-                        totalPrice             = total,
-                        dateText               = "اليوم، الآن",
-                        status                 = OrderStatus.PENDING,
-                        isStore                = false,
-                        estimatedArrivalMinutes = 18
-                    )
-
-                    val newNotif = NotificationItem(
-                        id       = "notif_${System.currentTimeMillis()}",
-                        title    = "تم تأكيد طلبك بنجاح! \uD83D\uDEF5",
-                        message  = "طلبك رقم #${orderNum} قيد التحضير في ${confirmedOrder.storeName}.",
-                        timeAgo  = "الآن",
-                        isRead   = false,
-                        orderId  = confirmedOrder.id
-                    )
-
-                    // ✅ All state updated atomically after backend success
-                    _uiState.update {
-                        it.copy(
-                            isPlacingOrder       = false,
-                            orderPlacementError  = null,
-                            orders               = listOf(confirmedOrder) + it.orders,
-                            activeTrackingOrder  = confirmedOrder,
-                            cartState            = CartState(),           // clear cart
-                            notifications        = listOf(newNotif) + it.notifications,
-                            currentSubScreen     = SubScreen.ORDER_TRACKING, // ✅ navigate
-                            trackingProgress     = 0.25f,
-                            trackingEtaMinutes   = 18
-                        )
+                    // ❌ API call failed — user stays on checkout, error message shown
+                    is ApiResult.Error -> {
+                        android.util.Log.e("ViewModel", "createOrder FAILED: ${result.message}")
+                        _uiState.update {
+                            it.copy(
+                                isPlacingOrder      = false,
+                                // User remains on CHECKOUT — currentSubScreen unchanged
+                                orderPlacementError = if (result.message.isNotBlank()) result.message else "فشل إرسال الطلب. يرجى التحقق من الاتصال وإعادة المحاولة."
+                            )
+                        }
                     }
                 }
-
-                // ❌ API call failed — user stays on checkout, error message shown
-                is ApiResult.Error -> {
-                    android.util.Log.e("ViewModel", "createOrder FAILED: ${result.message}")
-                    _uiState.update {
-                        it.copy(
-                            isPlacingOrder      = false,
-                            // User remains on CHECKOUT — currentSubScreen unchanged
-                            orderPlacementError = "فشل إرسال الطلب. يرجى التحقق من الاتصال وإعادة المحاولة."
-                        )
-                    }
+            } catch (e: Exception) {
+                android.util.Log.e("ViewModel", "createOrder EXCEPTION", e)
+                _uiState.update {
+                    it.copy(
+                        isPlacingOrder      = false,
+                        orderPlacementError = "خطأ في الاتصال بالخادم: ${e.localizedMessage ?: "حاول مرة أخرى"}"
+                    )
                 }
             }
         }

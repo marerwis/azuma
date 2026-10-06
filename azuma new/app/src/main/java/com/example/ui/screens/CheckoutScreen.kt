@@ -80,15 +80,31 @@ fun CheckoutScreen(
                         .height(54.dp)
                         .testTag("confirm_order_btn"),
                     shape = RoundedCornerShape(16.dp),
-                    colors = ButtonDefaults.buttonColors(containerColor = AzoomaOrange)
+                    colors = ButtonDefaults.buttonColors(
+                        containerColor = AzoomaOrange,
+                        disabledContainerColor = AzoomaOrange.copy(alpha = 0.7f),
+                        disabledContentColor = Color.White
+                    )
                 ) {
                     if (isPlacingOrder) {
-                        // Show spinner while waiting for backend 200 OK
-                        CircularProgressIndicator(
-                            modifier = Modifier.size(24.dp),
-                            color = Color.White,
-                            strokeWidth = 2.5.dp
-                        )
+                        Row(
+                            horizontalArrangement = Arrangement.Center,
+                            verticalAlignment = Alignment.CenterVertically
+                        ) {
+                            CircularProgressIndicator(
+                                modifier = Modifier.size(24.dp),
+                                color = Color.White,
+                                strokeWidth = 2.5.dp
+                            )
+                            Spacer(modifier = Modifier.width(10.dp))
+                            Text(
+                                text = "جاري إرسال الطلب...",
+                                style = AppTypography.titleMedium.copy(
+                                    color = Color.White,
+                                    fontWeight = FontWeight.Bold
+                                )
+                            )
+                        }
                     } else {
                         Row(
                             modifier = Modifier.fillMaxWidth(),
