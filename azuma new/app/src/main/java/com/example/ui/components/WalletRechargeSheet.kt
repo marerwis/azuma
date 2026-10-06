@@ -55,6 +55,8 @@ fun WalletRechargeSheet(
             modifier = Modifier
                 .fillMaxWidth()
                 .padding(horizontal = 20.dp, vertical = 8.dp)
+                .imePadding()
+                .navigationBarsPadding()
         ) {
             if (selectedMethod == null) {
                 // Step 1: Select Method (Screenshot 21)

@@ -168,88 +168,91 @@ fun WelcomeScreen(
             }
         }
 
-        // 3. Middle / Bottom overlay: Promotional Text & Indicator Dots (Matching user screenshot)
+        // 3. Bottom Content Wrapper (Text, Dots, and Bottom Sheet)
         Column(
             modifier = Modifier
                 .align(Alignment.BottomCenter)
                 .fillMaxWidth()
-                .padding(bottom = 240.dp, start = 24.dp, end = 24.dp),
-            horizontalAlignment = Alignment.CenterHorizontally
         ) {
-            Text(
-                text = slides[activeSlideIndex],
-                style = AppTypography.headlineLarge.copy(
-                    fontWeight = FontWeight.Bold,
-                    color = Color.White,
-                    fontSize = 25.sp,
-                    lineHeight = 34.sp
-                ),
-                textAlign = TextAlign.Center
-            )
-
-            Spacer(modifier = Modifier.height(14.dp))
-
-            // Carousel Dots (Matching user screenshot: 1 elongated pill + 3 dots)
-            Row(
-                horizontalArrangement = Arrangement.spacedBy(6.dp),
-                verticalAlignment = Alignment.CenterVertically
-            ) {
-                for (i in slides.indices) {
-                    if (i == activeSlideIndex) {
-                        Box(
-                            modifier = Modifier
-                                .width(24.dp)
-                                .height(6.dp)
-                                .clip(RoundedCornerShape(3.dp))
-                                .background(Color.White)
-                        )
-                    } else {
-                        Box(
-                            modifier = Modifier
-                                .size(6.dp)
-                                .clip(CircleShape)
-                                .background(Color.White.copy(alpha = 0.45f))
-                        )
-                    }
-                }
-            }
-        }
-
-        // 4. Bottom Sheet White Container with 3 Stacked Buttons (Matching user screenshot)
-        Surface(
-            modifier = Modifier
-                .align(Alignment.BottomCenter)
-                .fillMaxWidth(),
-            shape = RoundedCornerShape(topStart = 24.dp, topEnd = 24.dp),
-            color = Color.White,
-            shadowElevation = 16.dp
-        ) {
+            // Promotional Text & Indicator Dots
             Column(
                 modifier = Modifier
                     .fillMaxWidth()
-                    .padding(horizontal = 24.dp, vertical = 20.dp)
-                    .navigationBarsPadding(),
+                    .padding(horizontal = 24.dp, vertical = 24.dp),
                 horizontalAlignment = Alignment.CenterHorizontally
             ) {
-                // Button 1: "تسجيل حساب جديد" (Solid Vibrant Orange Button)
-                Button(
-                    onClick = onRegisterClick,
+                Text(
+                    text = slides[activeSlideIndex],
+                    style = AppTypography.headlineLarge.copy(
+                        fontWeight = FontWeight.Bold,
+                        color = Color.White,
+                        fontSize = 25.sp,
+                        lineHeight = 34.sp
+                    ),
+                    textAlign = TextAlign.Center
+                )
+
+                Spacer(modifier = Modifier.height(14.dp))
+
+                // Carousel Dots
+                Row(
+                    horizontalArrangement = Arrangement.spacedBy(6.dp),
+                    verticalAlignment = Alignment.CenterVertically
+                ) {
+                    for (i in slides.indices) {
+                        if (i == activeSlideIndex) {
+                            Box(
+                                modifier = Modifier
+                                    .width(24.dp)
+                                    .height(6.dp)
+                                    .clip(RoundedCornerShape(3.dp))
+                                    .background(Color.White)
+                            )
+                        } else {
+                            Box(
+                                modifier = Modifier
+                                    .size(6.dp)
+                                    .clip(CircleShape)
+                                    .background(Color.White.copy(alpha = 0.45f))
+                            )
+                        }
+                    }
+                }
+            }
+
+            // 4. Bottom Sheet White Container with 3 Stacked Buttons
+            Surface(
+                modifier = Modifier.fillMaxWidth(),
+                shape = RoundedCornerShape(topStart = 24.dp, topEnd = 24.dp),
+                color = Color.White,
+                shadowElevation = 16.dp
+            ) {
+                Column(
                     modifier = Modifier
                         .fillMaxWidth()
-                        .height(52.dp)
-                        .testTag("welcome_register_btn"),
-                    shape = RoundedCornerShape(14.dp),
-                    colors = ButtonDefaults.buttonColors(containerColor = AzoomaOrange)
+                        .padding(horizontal = 24.dp, vertical = 20.dp)
+                        .navigationBarsPadding(),
+                    horizontalAlignment = Alignment.CenterHorizontally
                 ) {
-                    Text(
-                        text = "تسجيل حساب جديد",
-                        style = AppTypography.titleMedium.copy(
-                            color = Color.White,
-                            fontWeight = FontWeight.Bold,
-                            fontSize = 16.sp
+                    // Button 1: "تسجيل حساب جديد"
+                    Button(
+                        onClick = onRegisterClick,
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .height(52.dp)
+                            .testTag("welcome_register_btn"),
+                        shape = RoundedCornerShape(14.dp),
+                        colors = ButtonDefaults.buttonColors(containerColor = AzoomaOrange)
+                    ) {
+                        Text(
+                            text = "تسجيل حساب جديد",
+                            style = AppTypography.titleMedium.copy(
+                                color = Color.White,
+                                fontWeight = FontWeight.Bold,
+                                fontSize = 16.sp
+                            )
                         )
-                    )
-                }
+                    }
 
                 Spacer(modifier = Modifier.height(12.dp))
 
