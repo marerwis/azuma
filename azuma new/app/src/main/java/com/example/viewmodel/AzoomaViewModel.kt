@@ -80,8 +80,8 @@ data class UiState(
     val authError: String? = null,           // error message to show user
     val userSession: UserSession? = null,    // set after successful verify
     // Legacy display fields kept for UI compatibility
-    val userName: String = "مرعي زلاوي",
-    val userPhone: String = "+218-914333564",
+    val userName: String = "",
+    val userPhone: String = "",
     val userEmail: String = "",
 
     // ── Navigation ────────────────────────────────────────────────────────────
@@ -125,7 +125,10 @@ data class UiState(
     val showLocationConfirmSheet: Boolean = false,
     val showFeedbackSheet: Boolean = false,
     val showRateUsDialog: Boolean = false,
-    val showAppSelectorSheet: Boolean = false
+    val showAppSelectorSheet: Boolean = false,
+    // ── Order Placement (Cloud-First: error stays on checkout, success navigates) ──
+    val isPlacingOrder: Boolean = false,
+    val orderPlacementError: String? = null
 )
 
 class AzoomaViewModel(application: Application) : AndroidViewModel(application) {
@@ -496,7 +499,9 @@ class AzoomaViewModel(application: Application) : AndroidViewModel(application) 
         }
     }
 
-    // ── Order Placement (local for now) ──────────────────────────────────────
+    // ── Order Placement — STRICT CLOUD-FIRST (Single Source of Truth) ─────────
+    // An order MUST be created in the backend (Node.js/Supabase) before ANY
+    // navigation occurs. Local fallbacks are FORBIDDEN per enterprise architecture.
 
     fun confirmOrder() {
         val cart = _uiState.value.cartState
@@ -505,11 +510,9 @@ class AzoomaViewModel(application: Application) : AndroidViewModel(application) 
         val address = _uiState.value.currentAddress
 
         val paymentMethod = when (_uiState.value.selectedPaymentType) {
-            PaymentType.CASH -> "cash"
-            PaymentType.WALLET -> "wallet"
+            PaymentType.CASH      -> "cash"
+            PaymentType.WALLET    -> "wallet"
             PaymentType.BANK_CARD -> "card"
-            // Libyan gateways — map to 'online' for the backend payload
-            // (deep gateway integration deferred to a future sprint)
             PaymentType.LIBYANA,
             PaymentType.SADAD,
             PaymentType.EDFA3LY,
@@ -521,84 +524,109 @@ class AzoomaViewModel(application: Application) : AndroidViewModel(application) 
         val request = com.example.data.api.CreateOrderRequest(
             storeId = storeId,
             deliveryAddress = "${address.name}, ${address.details}",
-            deliveryLatitude = 32.115, // Hardcoded for now until maps integration
-            deliveryLongitude = 20.068, // Hardcoded for now until maps integration
+            deliveryLatitude  = 32.115,
+            deliveryLongitude = 20.068,
             paymentMethod = paymentMethod,
             specialInstructions = cart.deliveryNote,
             items = cart.items.map { item ->
                 com.example.data.api.OrderItemInput(
                     productId = item.menuItem.id,
-                    quantity = item.quantity,
+                    quantity  = item.quantity,
                     unitPrice = item.menuItem.price
                 )
             }
         )
 
         viewModelScope.launch {
-            _uiState.update { it.copy(isLoadingData = true) }
-            when (val result = repository.createOrder(request)) {
-                is ApiResult.Success -> {
-                    val orderNum = result.data.id.takeLast(8) // Just for display
-                    val total = cart.grandTotal
+            // Show loading spinner; clear any previous error
+            _uiState.update { it.copy(isPlacingOrder = true, orderPlacementError = null) }
 
+            when (val result = repository.createOrder(request)) {
+
+                // ✅ Backend confirmed the order — NOW we can navigate
+                is ApiResult.Success -> {
+                    val orderId  = result.data.id
+                    val orderNum = orderId.takeLast(8)
+                    val total    = cart.grandTotal
+
+                    // Deduct wallet balance only after backend confirmation
                     if (_uiState.value.selectedPaymentType == PaymentType.WALLET) {
                         val newBalance = (_uiState.value.walletBalance - total).coerceAtLeast(0.0)
                         val newTx = WalletTransaction(
-                            id = "tx_${System.currentTimeMillis()}",
-                            title = "حجز قيمة ${total.toInt()} د.ل من محفظة الزبون للطلب رقم",
+                            id              = "tx_${System.currentTimeMillis()}",
+                            title           = "حجز قيمة ${total.toInt()} د.ل للطلب رقم",
                             referenceNumber = "#$orderNum",
-                            dateText = "الآن",
-                            amount = total,
-                            isDeduction = true
+                            dateText        = "الآن",
+                            amount          = total,
+                            isDeduction     = true
                         )
                         _uiState.update {
-                            it.copy(walletBalance = newBalance, walletTransactions = listOf(newTx) + it.walletTransactions)
+                            it.copy(
+                                walletBalance        = newBalance,
+                                walletTransactions   = listOf(newTx) + it.walletTransactions
+                            )
                         }
                     }
 
-                    val newOrder = Order(
-                        id = result.data.id,
-                        orderNumber = orderNum,
-                        storeName = cart.storeName.ifBlank { "المطعم" },
-                        storeAddress = "بنغازي",
-                        deliveryAddress = _uiState.value.currentAddress.name,
-                        itemsSummary = cart.items.map { it.menuItem.name to it.quantity },
-                        totalPrice = total,
-                        dateText = "اليوم، الآن",
-                        status = OrderStatus.ON_THE_WAY,
-                        isStore = false,
+                    val confirmedOrder = Order(
+                        id                     = orderId,
+                        orderNumber            = orderNum,
+                        storeName              = cart.storeName.ifBlank { "المطعم" },
+                        storeAddress           = "بنغازي",
+                        deliveryAddress        = _uiState.value.currentAddress.name,
+                        itemsSummary           = cart.items.map { it.menuItem.name to it.quantity },
+                        totalPrice             = total,
+                        dateText               = "اليوم، الآن",
+                        status                 = OrderStatus.PENDING,
+                        isStore                = false,
                         estimatedArrivalMinutes = 18
                     )
-                    
+
                     val newNotif = NotificationItem(
-                        id = "notif_${System.currentTimeMillis()}",
-                        title = "تم تأكيد طلبك بنجاح! \uD83D\uDEF5",
-                        message = "طلبك رقم #${orderNum} قيد التحضير في ${newOrder.storeName}.",
-                        timeAgo = "الآن",
-                        isRead = false,
-                        orderId = newOrder.id
+                        id       = "notif_${System.currentTimeMillis()}",
+                        title    = "تم تأكيد طلبك بنجاح! \uD83D\uDEF5",
+                        message  = "طلبك رقم #${orderNum} قيد التحضير في ${confirmedOrder.storeName}.",
+                        timeAgo  = "الآن",
+                        isRead   = false,
+                        orderId  = confirmedOrder.id
                     )
-                    
+
+                    // ✅ All state updated atomically after backend success
                     _uiState.update {
                         it.copy(
-                            isLoadingData = false,
-                            orders = listOf(newOrder) + it.orders,
-                            activeTrackingOrder = newOrder,
-                            cartState = CartState(),
-                            notifications = listOf(newNotif) + it.notifications,
-                            currentSubScreen = SubScreen.ORDER_TRACKING,
-                            trackingProgress = 0.25f,
-                            trackingEtaMinutes = 18
+                            isPlacingOrder       = false,
+                            orderPlacementError  = null,
+                            orders               = listOf(confirmedOrder) + it.orders,
+                            activeTrackingOrder  = confirmedOrder,
+                            cartState            = CartState(),           // clear cart
+                            notifications        = listOf(newNotif) + it.notifications,
+                            currentSubScreen     = SubScreen.ORDER_TRACKING, // ✅ navigate
+                            trackingProgress     = 0.25f,
+                            trackingEtaMinutes   = 18
                         )
                     }
                 }
+
+                // ❌ API call failed — user stays on checkout, error message shown
                 is ApiResult.Error -> {
-                    android.util.Log.e("ViewModel", "Order creation failed: ${result.message}")
-                    _uiState.update { it.copy(isLoadingData = false) }
+                    android.util.Log.e("ViewModel", "createOrder FAILED: ${result.message}")
+                    _uiState.update {
+                        it.copy(
+                            isPlacingOrder      = false,
+                            // User remains on CHECKOUT — currentSubScreen unchanged
+                            orderPlacementError = "فشل إرسال الطلب. يرجى التحقق من الاتصال وإعادة المحاولة."
+                        )
+                    }
                 }
             }
         }
     }
+
+    /** Call from UI after Snackbar is dismissed to clear the checkout error. */
+    fun clearOrderError() {
+        _uiState.update { it.copy(orderPlacementError = null) }
+    }
+
 
     // ── Wallet ────────────────────────────────────────────────────────────────
 
@@ -834,8 +862,8 @@ class AzoomaViewModel(application: Application) : AndroidViewModel(application) 
             it.copy(
                 isAuthenticated = true,
                 showAuthSheet = false,
-                userName = name.ifBlank { "مرعي زلاوي" },
-                userPhone = phone.ifBlank { "+218-914333564" },
+                userName = name.ifBlank { "مستخدم عزومة" },
+                userPhone = phone.ifBlank { "" },
                 currentTab = BottomTab.HOME,
                 currentSubScreen = SubScreen.NONE
             )

@@ -1,7 +1,6 @@
 package com.example.ui.components
 
 import androidx.compose.foundation.background
-import androidx.compose.foundation.border
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.text.KeyboardOptions
@@ -13,14 +12,21 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import androidx.credentials.CredentialManager
+import androidx.credentials.GetCredentialRequest
+import androidx.credentials.exceptions.GetCredentialException
 import com.example.ui.screens.LibyanFlagIcon
 import com.example.ui.theme.*
+import com.google.android.libraries.identity.googleid.GetGoogleIdOption
+import com.google.android.libraries.identity.googleid.GoogleIdTokenCredential
+import kotlinx.coroutines.launch
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -29,10 +35,38 @@ fun AuthSheet(
     onDismiss: () -> Unit,
     onSuccess: (name: String, phone: String) -> Unit
 ) {
-    var step by remember { mutableIntStateOf(1) } // 1 = Phone input, 2 = OTP verification
-    var fullName by remember { mutableStateOf("مرعي زلاوي") }
-    var phoneNumber by remember { mutableStateOf("0914333564") }
-    var otpCode by remember { mutableStateOf("4892") }
+    val context = LocalContext.current
+    val scope = rememberCoroutineScope()
+    var step by remember { mutableIntStateOf(1) } // 1 = Phone input, 2 = OTP
+    var fullName by remember { mutableStateOf("") }
+    var phoneNumber by remember { mutableStateOf("") }
+    var otpCode by remember { mutableStateOf("") }
+    var googleError by remember { mutableStateOf<String?>(null) }
+
+    // Credential Manager — always shows the full account picker (filterByAuthorizedAccounts = false)
+    val credentialManager = remember { CredentialManager.create(context) }
+    fun launchGoogleSignIn() {
+        scope.launch {
+            try {
+                val googleIdOption = GetGoogleIdOption.Builder()
+                    .setFilterByAuthorizedAccounts(false) // show ALL Google accounts
+                    .setServerClientId("887113361534-mte94fa4cbjhu6vidfk4m2ov5n7apa8l.apps.googleusercontent.com")
+                    .setAutoSelectEnabled(false) // never auto-pick one account
+                    .build()
+                val request = GetCredentialRequest.Builder()
+                    .addCredentialOption(googleIdOption)
+                    .build()
+                val result = credentialManager.getCredential(context as android.app.Activity, request)
+                val credential = result.credential
+                if (credential.type == GoogleIdTokenCredential.TYPE_GOOGLE_ID_TOKEN_CREDENTIAL) {
+                    val googleCred = GoogleIdTokenCredential.createFrom(credential.data)
+                    onSuccess(googleCred.displayName ?: "مستخدم Google", googleCred.id)
+                }
+            } catch (e: GetCredentialException) {
+                googleError = "حدث خطأ في تسجيل دخول Google"
+            }
+        }
+    }
 
     ModalBottomSheet(
         onDismissRequest = onDismiss,
@@ -165,12 +199,17 @@ fun AuthSheet(
 
                 Spacer(modifier = Modifier.height(14.dp))
 
-                // Google Sign-In Button
+                // Google Sign-In via Credential Manager — shows full account picker
+                if (googleError != null) {
+                    Text(
+                        text = googleError!!,
+                        style = AppTypography.bodySmall.copy(color = Color(0xFFDC2626)),
+                        modifier = Modifier.fillMaxWidth()
+                    )
+                    Spacer(modifier = Modifier.height(6.dp))
+                }
                 OutlinedButton(
-                    onClick = {
-                        val finalPhone = if (phoneNumber.startsWith("+218")) phoneNumber else "+218-$phoneNumber"
-                        onSuccess(if (fullName.isNotBlank()) fullName else "مستخدم Google", finalPhone)
-                    },
+                    onClick = { launchGoogleSignIn() },
                     modifier = Modifier
                         .fillMaxWidth()
                         .height(52.dp)

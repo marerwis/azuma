@@ -32,16 +32,32 @@ fun CheckoutScreen(
     currentAddress: Address,
     selectedPaymentType: PaymentType,
     walletBalance: Double,
+    isPlacingOrder: Boolean = false,
+    orderPlacementError: String? = null,
     onBackClick: () -> Unit,
     onToggleDelivery: (Boolean) -> Unit,
     onAddressClick: () -> Unit,
     onSelectPaymentClick: () -> Unit,
     onDeliveryNoteChange: (String) -> Unit,
     onConfirmOrder: () -> Unit,
+    onClearOrderError: () -> Unit = {},
     modifier: Modifier = Modifier
 ) {
     var showItemsSummary by remember { mutableStateOf(false) }
     var showNotesInput by remember { mutableStateOf(false) }
+    val snackbarHostState = remember { SnackbarHostState() }
+
+    // Show Snackbar when API returns an error (user stays on checkout)
+    LaunchedEffect(orderPlacementError) {
+        if (orderPlacementError != null) {
+            snackbarHostState.showSnackbar(
+                message = orderPlacementError,
+                actionLabel = "إغلاق",
+                duration = SnackbarDuration.Long
+            )
+            onClearOrderError()
+        }
+    }
 
     Box(modifier = modifier.fillMaxSize()) {
         LazyColumn(
@@ -466,7 +482,15 @@ fun CheckoutScreen(
             }
         }
 
-        // Bottom CTA Button: "تأكيد الطلب 23.25 د.ل" (Screenshot 6)
+        // Snackbar host anchored just above the button
+        SnackbarHost(
+            hostState = snackbarHostState,
+            modifier = Modifier
+                .align(Alignment.BottomCenter)
+                .padding(bottom = 80.dp) // So it doesn't overlap the confirm button
+        )
+
+        // Bottom CTA Button: "تأكيد الطلب" — Cloud-First: disabled while API call is in flight
         Surface(
             modifier = Modifier
                 .align(Alignment.BottomCenter)
@@ -476,7 +500,8 @@ fun CheckoutScreen(
             shadowElevation = 8.dp
         ) {
             Button(
-                onClick = onConfirmOrder,
+                onClick = { if (!isPlacingOrder) onConfirmOrder() },
+                enabled = !isPlacingOrder,
                 modifier = Modifier
                     .fillMaxWidth()
                     .height(54.dp)
@@ -484,26 +509,34 @@ fun CheckoutScreen(
                 shape = RoundedCornerShape(16.dp),
                 colors = ButtonDefaults.buttonColors(containerColor = AzoomaOrange)
             ) {
-                Row(
-                    modifier = Modifier.fillMaxWidth(),
-                    horizontalArrangement = Arrangement.SpaceBetween,
-                    verticalAlignment = Alignment.CenterVertically
-                ) {
-                    Text(
-                        text = "%.2f د.ل".format(cartState.grandTotal),
-                        style = AppTypography.titleMedium.copy(
-                            color = Color.White,
-                            fontWeight = FontWeight.Bold
-                        )
+                if (isPlacingOrder) {
+                    // Show spinner while waiting for backend 200 OK
+                    CircularProgressIndicator(
+                        modifier = Modifier.size(24.dp),
+                        color = Color.White,
+                        strokeWidth = 2.5.dp
                     )
-
-                    Text(
-                        text = "تأكيد الطلب",
-                        style = AppTypography.titleMedium.copy(
-                            color = Color.White,
-                            fontWeight = FontWeight.Bold
+                } else {
+                    Row(
+                        modifier = Modifier.fillMaxWidth(),
+                        horizontalArrangement = Arrangement.SpaceBetween,
+                        verticalAlignment = Alignment.CenterVertically
+                    ) {
+                        Text(
+                            text = "%.2f د.ل".format(cartState.grandTotal),
+                            style = AppTypography.titleMedium.copy(
+                                color = Color.White,
+                                fontWeight = FontWeight.Bold
+                            )
                         )
-                    )
+                        Text(
+                            text = "تأكيد الطلب",
+                            style = AppTypography.titleMedium.copy(
+                                color = Color.White,
+                                fontWeight = FontWeight.Bold
+                            )
+                        )
+                    }
                 }
             }
         }
