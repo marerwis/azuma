@@ -50,7 +50,7 @@ fun AuthSheet(
             try {
                 val googleIdOption = GetGoogleIdOption.Builder()
                     .setFilterByAuthorizedAccounts(false) // show ALL Google accounts
-                    .setServerClientId("887113361534-mte94fa4cbjhu6vidfk4m2ov5n7apa8l.apps.googleusercontent.com")
+                    .setServerClientId("887113361534-lfgdb3h2uld9e5jm6i0v3lsf2r6ahh08.apps.googleusercontent.com")
                     .setAutoSelectEnabled(false) // never auto-pick one account
                     .build()
                 val request = GetCredentialRequest.Builder()

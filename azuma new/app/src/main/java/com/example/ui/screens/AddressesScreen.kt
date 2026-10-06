@@ -177,6 +177,7 @@ fun AddressesScreen(
             modifier = Modifier
                 .align(Alignment.BottomCenter)
                 .fillMaxWidth()
+                .navigationBarsPadding()
                 .padding(16.dp),
             shape = RoundedCornerShape(16.dp),
             shadowElevation = 8.dp

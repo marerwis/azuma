@@ -708,6 +708,7 @@ fun StoreProfileScreen(
             Box(
                 modifier = Modifier
                     .align(Alignment.BottomCenter)
+                    .navigationBarsPadding()
                     .padding(bottom = 20.dp, start = 20.dp, end = 20.dp)
             ) {
                 Surface(
