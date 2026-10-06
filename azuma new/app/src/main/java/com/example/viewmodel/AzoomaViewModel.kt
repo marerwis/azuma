@@ -889,6 +889,13 @@ class AzoomaViewModel(application: Application) : AndroidViewModel(application) 
             try { sessionManager.clear() } catch (e: Exception) {
                 android.util.Log.e("ViewModel", "Failed to clear session", e)
             }
+            try {
+                androidx.credentials.CredentialManager.create(getApplication()).clearCredentialState(
+                    androidx.credentials.ClearCredentialStateRequest()
+                )
+            } catch (e: Exception) {
+                android.util.Log.e("ViewModel", "Failed to clear credential state", e)
+            }
         }
         _uiState.update {
             it.copy(

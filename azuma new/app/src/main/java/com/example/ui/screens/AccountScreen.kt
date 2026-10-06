@@ -26,8 +26,8 @@ import com.example.ui.theme.*
 
 @Composable
 fun AccountScreen(
-    userName: String = "مرعي زلاوي",
-    userPhone: String = "+218-914333564",
+    userName: String = "",
+    userPhone: String = "",
     selectedCountry: String = "ليبيا",
     onWalletClick: () -> Unit,
     onHelpClick: () -> Unit,

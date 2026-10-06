@@ -59,12 +59,67 @@ fun CheckoutScreen(
         }
     }
 
-    Box(modifier = modifier.fillMaxSize()) {
+    Scaffold(
+        modifier = modifier.fillMaxSize(),
+        snackbarHost = { SnackbarHost(snackbarHostState) },
+        bottomBar = {
+            // Bottom CTA Button: "تأكيد الطلب" — Cloud-First: disabled while API call is in flight
+            Surface(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .padding(16.dp),
+                shape = RoundedCornerShape(16.dp),
+                shadowElevation = 8.dp
+            ) {
+                Button(
+                    onClick = { if (!isPlacingOrder) onConfirmOrder() },
+                    enabled = !isPlacingOrder,
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .height(54.dp)
+                        .testTag("confirm_order_btn"),
+                    shape = RoundedCornerShape(16.dp),
+                    colors = ButtonDefaults.buttonColors(containerColor = AzoomaOrange)
+                ) {
+                    if (isPlacingOrder) {
+                        // Show spinner while waiting for backend 200 OK
+                        CircularProgressIndicator(
+                            modifier = Modifier.size(24.dp),
+                            color = Color.White,
+                            strokeWidth = 2.5.dp
+                        )
+                    } else {
+                        Row(
+                            modifier = Modifier.fillMaxWidth(),
+                            horizontalArrangement = Arrangement.SpaceBetween,
+                            verticalAlignment = Alignment.CenterVertically
+                        ) {
+                            Text(
+                                text = "%.2f د.ل".format(cartState.grandTotal),
+                                style = AppTypography.titleMedium.copy(
+                                    color = Color.White,
+                                    fontWeight = FontWeight.Bold
+                                )
+                            )
+                            Text(
+                                text = "تأكيد الطلب",
+                                style = AppTypography.titleMedium.copy(
+                                    color = Color.White,
+                                    fontWeight = FontWeight.Bold
+                                )
+                            )
+                        }
+                    }
+                }
+            }
+        },
+        containerColor = AzoomaBackground
+    ) { innerPadding ->
         LazyColumn(
             modifier = Modifier
                 .fillMaxSize()
-                .background(AzoomaBackground),
-            contentPadding = PaddingValues(bottom = 100.dp)
+                .padding(innerPadding),
+            contentPadding = PaddingValues(bottom = 24.dp)
         ) {
             // Header (Screenshot 6: "تفاصيل الطلب")
             item {
@@ -477,65 +532,6 @@ fun CheckoutScreen(
                                 )
                             )
                         }
-                    }
-                }
-            }
-        }
-
-        // Snackbar host anchored just above the button
-        SnackbarHost(
-            hostState = snackbarHostState,
-            modifier = Modifier
-                .align(Alignment.BottomCenter)
-                .padding(bottom = 80.dp) // So it doesn't overlap the confirm button
-        )
-
-        // Bottom CTA Button: "تأكيد الطلب" — Cloud-First: disabled while API call is in flight
-        Surface(
-            modifier = Modifier
-                .align(Alignment.BottomCenter)
-                .fillMaxWidth()
-                .padding(16.dp),
-            shape = RoundedCornerShape(16.dp),
-            shadowElevation = 8.dp
-        ) {
-            Button(
-                onClick = { if (!isPlacingOrder) onConfirmOrder() },
-                enabled = !isPlacingOrder,
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .height(54.dp)
-                    .testTag("confirm_order_btn"),
-                shape = RoundedCornerShape(16.dp),
-                colors = ButtonDefaults.buttonColors(containerColor = AzoomaOrange)
-            ) {
-                if (isPlacingOrder) {
-                    // Show spinner while waiting for backend 200 OK
-                    CircularProgressIndicator(
-                        modifier = Modifier.size(24.dp),
-                        color = Color.White,
-                        strokeWidth = 2.5.dp
-                    )
-                } else {
-                    Row(
-                        modifier = Modifier.fillMaxWidth(),
-                        horizontalArrangement = Arrangement.SpaceBetween,
-                        verticalAlignment = Alignment.CenterVertically
-                    ) {
-                        Text(
-                            text = "%.2f د.ل".format(cartState.grandTotal),
-                            style = AppTypography.titleMedium.copy(
-                                color = Color.White,
-                                fontWeight = FontWeight.Bold
-                            )
-                        )
-                        Text(
-                            text = "تأكيد الطلب",
-                            style = AppTypography.titleMedium.copy(
-                                color = Color.White,
-                                fontWeight = FontWeight.Bold
-                            )
-                        )
                     }
                 }
             }

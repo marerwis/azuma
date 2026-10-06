@@ -32,8 +32,8 @@ fun WalletRechargeSheet(
     onRechargeSuccess: (amount: Double, method: String) -> Unit
 ) {
     var selectedMethod by remember { mutableStateOf<PaymentType?>(null) }
-    var phoneNumber by remember { mutableStateOf("0914333564") }
-    var amountText by remember { mutableStateOf("40") }
+    var phoneNumber by remember { mutableStateOf("") }
+    var amountText by remember { mutableStateOf("") }
 
     ModalBottomSheet(
         onDismissRequest = onDismiss,
