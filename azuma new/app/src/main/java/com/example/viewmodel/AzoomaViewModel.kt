@@ -904,40 +904,97 @@ class AzoomaViewModel(application: Application) : AndroidViewModel(application) 
     fun dismissAuthSheet() { _uiState.update { it.copy(showAuthSheet = false, authError = null) } }
 
     fun authenticateUser(name: String, phoneOrEmail: String, idToken: String? = null) {
-        val token = if (!idToken.isNullOrBlank()) idToken else "session_token_${System.currentTimeMillis()}"
-        _idToken = token
-
-        val isEmail = phoneOrEmail.contains("@")
-        val session = UserSession(
-            id = "user_${System.currentTimeMillis()}",
-            fullName = name.ifBlank { "مستخدم عزومة" },
-            phone = if (!isEmail) phoneOrEmail.ifBlank { "+218900000000" } else null,
-            email = if (isEmail) phoneOrEmail else null,
-            role = "USER",
-            avatarUrl = null,
-            supabaseToken = token
-        )
-
         viewModelScope.launch {
-            try { sessionManager.save(session, token) } catch (e: Exception) {
-                android.util.Log.e("ViewModel", "Failed to save session", e)
+            if (!idToken.isNullOrBlank()) {
+                _uiState.update { it.copy(isAuthLoading = true, authError = null) }
+                try {
+                    // 1. Exchange Google ID token with Supabase Auth
+                    supabase.auth.signInWith(IDToken) {
+                        this.idToken = idToken
+                        this.provider = Google
+                    }
+                    
+                    // 2. Get the Supabase Access Token (JWT)
+                    val supabaseJwt = supabase.auth.currentSessionOrNull()?.accessToken
+                    
+                    if (supabaseJwt == null) {
+                        _uiState.update { it.copy(isAuthLoading = false, authError = "فشل في الحصول على توثيق Supabase") }
+                        return@launch
+                    }
+                    
+                    // 3. Persist the CORRECT token
+                    _idToken = supabaseJwt
+                    
+                    val isEmail = phoneOrEmail.contains("@")
+                    val session = UserSession(
+                        id = "user_${System.currentTimeMillis()}", // Mock ID for now, or fetch from supabase.auth.currentUserOrNull()?.id
+                        fullName = name.ifBlank { "مستخدم عزومة" },
+                        phone = if (!isEmail) phoneOrEmail.ifBlank { "+218900000000" } else null,
+                        email = if (isEmail) phoneOrEmail else null,
+                        role = "USER",
+                        avatarUrl = null,
+                        supabaseToken = supabaseJwt
+                    )
+                    
+                    try { sessionManager.save(session, supabaseJwt) } catch (e: Exception) {
+                        android.util.Log.e("ViewModel", "Failed to save session", e)
+                    }
+
+                    _uiState.update {
+                        it.copy(
+                            isAuthLoading = false,
+                            isAuthenticated = true,
+                            showAuthSheet = false,
+                            userSession = session,
+                            userName = session.fullName,
+                            userPhone = session.phone ?: "",
+                            userEmail = session.email ?: "",
+                            currentTab = BottomTab.HOME,
+                            currentSubScreen = SubScreen.NONE
+                        )
+                    }
+                    
+                    fetchAddresses()
+                } catch (e: Exception) {
+                    android.util.Log.e("ViewModel", "Failed to exchange ID token in authenticateUser", e)
+                    _uiState.update { it.copy(isAuthLoading = false, authError = "حدث خطأ أثناء تسجيل الدخول: ${e.localizedMessage}") }
+                }
+            } else {
+                // Mock local authentication when no token is provided
+                val token = "session_token_${System.currentTimeMillis()}"
+                _idToken = token
+
+                val isEmail = phoneOrEmail.contains("@")
+                val session = UserSession(
+                    id = "user_${System.currentTimeMillis()}",
+                    fullName = name.ifBlank { "مستخدم عزومة" },
+                    phone = if (!isEmail) phoneOrEmail.ifBlank { "+218900000000" } else null,
+                    email = if (isEmail) phoneOrEmail else null,
+                    role = "USER",
+                    avatarUrl = null,
+                    supabaseToken = token
+                )
+
+                try { sessionManager.save(session, token) } catch (e: Exception) {
+                    android.util.Log.e("ViewModel", "Failed to save session", e)
+                }
+
+                _uiState.update {
+                    it.copy(
+                        isAuthenticated = true,
+                        showAuthSheet = false,
+                        userSession = session,
+                        userName = session.fullName,
+                        userPhone = session.phone ?: "",
+                        userEmail = session.email ?: "",
+                        currentTab = BottomTab.HOME,
+                        currentSubScreen = SubScreen.NONE
+                    )
+                }
+
+                fetchAddresses()
             }
         }
-
-        _uiState.update {
-            it.copy(
-                isAuthenticated = true,
-                showAuthSheet = false,
-                userSession = session,
-                userName = session.fullName,
-                userPhone = session.phone ?: "",
-                userEmail = session.email ?: "",
-                currentTab = BottomTab.HOME,
-                currentSubScreen = SubScreen.NONE
-            )
-        }
-
-        fetchAddresses()
     }
 
     fun continueAsGuest() {
