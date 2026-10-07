@@ -15,7 +15,7 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
-import androidx.compose.ui.platform.testTag
+
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
@@ -78,7 +78,7 @@ fun CheckoutScreen(
                     modifier = Modifier
                         .fillMaxWidth()
                         .height(54.dp)
-                        .testTag("confirm_order_btn"),
+,
                     shape = RoundedCornerShape(16.dp),
                     colors = ButtonDefaults.buttonColors(
                         containerColor = AzoomaOrange,
@@ -355,7 +355,7 @@ fun CheckoutScreen(
                                 placeholder = { Text("مثلاً: يررجى الاتصال عند الوصول أمام العمارة") },
                                 modifier = Modifier
                                     .fillMaxWidth()
-                                    .testTag("delivery_note_input"),
+,
                                 shape = RoundedCornerShape(12.dp),
                                 colors = OutlinedTextFieldDefaults.colors(
                                     focusedBorderColor = AzoomaOrange,
@@ -470,7 +470,7 @@ fun CheckoutScreen(
                         .padding(horizontal = 16.dp, vertical = 4.dp)
                         .clip(RoundedCornerShape(16.dp))
                         .clickable { onSelectPaymentClick() }
-                        .testTag("checkout_select_payment_btn"),
+,
                     color = Color.White,
                     shadowElevation = 1.dp
                 ) {

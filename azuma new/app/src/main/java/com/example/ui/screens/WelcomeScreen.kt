@@ -21,7 +21,7 @@ import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.layout.ContentScale
-import androidx.compose.ui.platform.testTag
+
 import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
@@ -96,7 +96,7 @@ fun WelcomeScreen(
                 modifier = Modifier
                     .clip(RoundedCornerShape(24.dp))
                     .clickable { /* Language Selector */ }
-                    .testTag("welcome_lang_btn"),
+,
                 shape = RoundedCornerShape(24.dp),
                 color = Color.White.copy(alpha = 0.95f),
                 shadowElevation = 4.dp
@@ -135,7 +135,7 @@ fun WelcomeScreen(
                 modifier = Modifier
                     .clip(RoundedCornerShape(24.dp))
                     .clickable { /* Country Selector */ }
-                    .testTag("welcome_country_btn"),
+,
                 shape = RoundedCornerShape(24.dp),
                 color = Color.White.copy(alpha = 0.95f),
                 shadowElevation = 4.dp
@@ -240,7 +240,7 @@ fun WelcomeScreen(
                         modifier = Modifier
                             .fillMaxWidth()
                             .height(52.dp)
-                            .testTag("welcome_register_btn"),
+,
                         shape = RoundedCornerShape(14.dp),
                         colors = ButtonDefaults.buttonColors(containerColor = AzoomaOrange)
                     ) {
@@ -262,7 +262,7 @@ fun WelcomeScreen(
                     modifier = Modifier
                         .fillMaxWidth()
                         .height(52.dp)
-                        .testTag("welcome_login_btn"),
+,
                     shape = RoundedCornerShape(14.dp),
                     colors = ButtonDefaults.buttonColors(
                         containerColor = Color(0xFFEDF1F7),
@@ -293,7 +293,7 @@ fun WelcomeScreen(
                         .clip(RoundedCornerShape(8.dp))
                         .clickable { onContinueAsGuestClick() }
                         .padding(horizontal = 16.dp, vertical = 8.dp)
-                        .testTag("welcome_guest_btn")
+
                 )
             }
         }

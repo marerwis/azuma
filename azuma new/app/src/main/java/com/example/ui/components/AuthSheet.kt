@@ -13,7 +13,7 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.platform.LocalContext
-import androidx.compose.ui.platform.testTag
+
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.text.style.TextAlign
@@ -123,7 +123,7 @@ fun AuthSheet(
                         label = { Text("الاسم الكامل") },
                         modifier = Modifier
                             .fillMaxWidth()
-                            .testTag("auth_name_input"),
+,
                         shape = RoundedCornerShape(14.dp),
                         colors = OutlinedTextFieldDefaults.colors(
                             focusedBorderColor = AzoomaOrange,
@@ -158,7 +158,7 @@ fun AuthSheet(
                     keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Phone),
                     modifier = Modifier
                         .fillMaxWidth()
-                        .testTag("auth_phone_input"),
+,
                     shape = RoundedCornerShape(14.dp),
                     colors = OutlinedTextFieldDefaults.colors(
                         focusedBorderColor = AzoomaOrange,
@@ -174,7 +174,7 @@ fun AuthSheet(
                     modifier = Modifier
                         .fillMaxWidth()
                         .height(52.dp)
-                        .testTag("auth_send_otp_btn"),
+,
                     shape = RoundedCornerShape(14.dp),
                     colors = ButtonDefaults.buttonColors(containerColor = AzoomaOrange)
                 ) {
@@ -217,7 +217,7 @@ fun AuthSheet(
                     modifier = Modifier
                         .fillMaxWidth()
                         .height(52.dp)
-                        .testTag("auth_google_btn"),
+,
                     shape = RoundedCornerShape(14.dp),
                     border = androidx.compose.foundation.BorderStroke(1.dp, Color(0xFFE5E7EB))
                 ) {
@@ -246,7 +246,7 @@ fun AuthSheet(
                     keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number),
                     modifier = Modifier
                         .fillMaxWidth()
-                        .testTag("auth_otp_input"),
+,
                     shape = RoundedCornerShape(14.dp),
                     colors = OutlinedTextFieldDefaults.colors(
                         focusedBorderColor = AzoomaOrange,
@@ -275,7 +275,7 @@ fun AuthSheet(
                     modifier = Modifier
                         .fillMaxWidth()
                         .height(52.dp)
-                        .testTag("auth_verify_btn"),
+,
                     shape = RoundedCornerShape(14.dp),
                     colors = ButtonDefaults.buttonColors(containerColor = AzoomaOrange)
                 ) {

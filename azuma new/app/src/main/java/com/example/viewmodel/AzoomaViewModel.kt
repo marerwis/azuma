@@ -574,7 +574,7 @@ class AzoomaViewModel(application: Application) : AndroidViewModel(application) 
                 if (!savedToken.isNullOrBlank()) {
                     _idToken = savedToken
                 } else {
-                    _idToken = _uiState.value.userSession?.supabaseToken ?: "jwt_token_${System.currentTimeMillis()}"
+                    _idToken = _uiState.value.userSession?.supabaseToken
                 }
             }
 
@@ -651,8 +651,7 @@ class AzoomaViewModel(application: Application) : AndroidViewModel(application) 
                         _uiState.update {
                             it.copy(
                                 isPlacingOrder      = false,
-                                // User remains on CHECKOUT — currentSubScreen unchanged
-                                orderPlacementError = if (result.message.isNotBlank()) result.message else "فشل إرسال الطلب. يرجى التحقق من الاتصال وإعادة المحاولة."
+                                orderPlacementError = "عفواً، فشل إرسال الطلب. يرجى التحقق من الاتصال وإعادة المحاولة."
                             )
                         }
                     }
@@ -960,39 +959,7 @@ class AzoomaViewModel(application: Application) : AndroidViewModel(application) 
                     _uiState.update { it.copy(isAuthLoading = false, authError = "حدث خطأ أثناء تسجيل الدخول: ${e.localizedMessage}") }
                 }
             } else {
-                // Mock local authentication when no token is provided
-                val token = "session_token_${System.currentTimeMillis()}"
-                _idToken = token
-
-                val isEmail = phoneOrEmail.contains("@")
-                val session = UserSession(
-                    id = "user_${System.currentTimeMillis()}",
-                    fullName = name.ifBlank { "مستخدم عزومة" },
-                    phone = if (!isEmail) phoneOrEmail.ifBlank { "+218900000000" } else null,
-                    email = if (isEmail) phoneOrEmail else null,
-                    role = "USER",
-                    avatarUrl = null,
-                    supabaseToken = token
-                )
-
-                try { sessionManager.save(session, token) } catch (e: Exception) {
-                    android.util.Log.e("ViewModel", "Failed to save session", e)
-                }
-
-                _uiState.update {
-                    it.copy(
-                        isAuthenticated = true,
-                        showAuthSheet = false,
-                        userSession = session,
-                        userName = session.fullName,
-                        userPhone = session.phone ?: "",
-                        userEmail = session.email ?: "",
-                        currentTab = BottomTab.HOME,
-                        currentSubScreen = SubScreen.NONE
-                    )
-                }
-
-                fetchAddresses()
+                _uiState.update { it.copy(isAuthLoading = false, authError = "فشل في الحصول على بيانات الدخول") }
             }
         }
     }
