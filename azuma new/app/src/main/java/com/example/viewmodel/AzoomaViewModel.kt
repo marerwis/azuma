@@ -25,6 +25,8 @@ import io.github.jan.supabase.realtime.PostgresAction
 import kotlinx.coroutines.flow.onEach
 import kotlinx.coroutines.flow.launchIn
 import android.app.Application
+import io.github.jan.supabase.auth.providers.Google
+import io.github.jan.supabase.auth.providers.builtin.IDToken
 
 enum class BottomTab {
     HOME,
@@ -252,48 +254,69 @@ class AzoomaViewModel(application: Application) : AndroidViewModel(application) 
     fun verifyWithApi(idToken: String, fullName: String? = null, fcmToken: String? = null) {
         viewModelScope.launch {
             _uiState.update { it.copy(isAuthLoading = true, authError = null) }
-            _idToken = idToken // store for future authenticated requests
 
-            when (val result = repository.verifyFirebaseToken(idToken, fcmToken, fullName)) {
-                is ApiResult.Success -> {
-                    val session = result.data
-                    
-                    // Inject the custom backend JWT into Supabase so Realtime RLS works
-                    session.supabaseToken?.let { token ->
-                        try {
-                            supabase.auth.importAuthToken(token)
-                            supabase.realtime.connect()
-                        } catch (e: Exception) {
-                            android.util.Log.e("ViewModel", "Failed to authenticate Supabase", e)
+            try {
+                // 1. Exchange Google ID token with Supabase Auth
+                supabase.auth.signInWith(IDToken) {
+                    this.idToken = idToken
+                    this.provider = Google
+                }
+                
+                // 2. Get the Supabase Access Token (JWT)
+                val supabaseJwt = supabase.auth.currentAccessTokenOrNull()
+                if (supabaseJwt == null) {
+                    _uiState.update { it.copy(isAuthLoading = false, authError = "فشل في الحصول على توثيق Supabase") }
+                    return@launch
+                }
+                
+                // 3. Set the token that Retrofit AuthInterceptor will use
+                _idToken = supabaseJwt 
+
+                // 4. Proceed with our backend API call using the Supabase JWT
+                when (val result = repository.verifyFirebaseToken(supabaseJwt, fcmToken, fullName)) {
+                    is ApiResult.Success -> {
+                        val session = result.data
+                        
+                        // Inject the custom backend JWT into Supabase so Realtime RLS works
+                        session.supabaseToken?.let { token ->
+                            try {
+                                supabase.auth.importAuthToken(token)
+                                supabase.realtime.connect()
+                            } catch (e: Exception) {
+                                android.util.Log.e("ViewModel", "Failed to authenticate Supabase", e)
+                            }
+                        }
+
+                        // ── Persist session to DataStore so user stays logged in ──
+                        try { sessionManager.save(session, supabaseJwt) } catch (e: Exception) {
+                            android.util.Log.e("ViewModel", "Failed to persist session", e)
+                        }
+
+                        _uiState.update {
+                            it.copy(
+                                isAuthLoading = false,
+                                isAuthenticated = true,
+                                showAuthSheet = false,
+                                userSession = session,
+                                userName = session.fullName.ifBlank { fullName ?: "مستخدم" },
+                                userPhone = session.phone ?: "",
+                                userEmail = session.email ?: "",
+                                currentTab = BottomTab.HOME,
+                                currentSubScreen = SubScreen.NONE
+                            )
+                        }
+                        
+                        fetchAddresses()
+                    }
+                    is ApiResult.Error -> {
+                        _uiState.update {
+                            it.copy(isAuthLoading = false, authError = result.message)
                         }
                     }
-
-                    // ── Persist session to DataStore so user stays logged in ──
-                    try { sessionManager.save(session, idToken) } catch (e: Exception) {
-                        android.util.Log.e("ViewModel", "Failed to persist session", e)
-                    }
-
-                    _uiState.update {
-                        it.copy(
-                            isAuthLoading = false,
-                            isAuthenticated = true,
-                            showAuthSheet = false,
-                            userSession = session,
-                            userName = session.fullName.ifBlank { fullName ?: "مستخدم" },
-                            userPhone = session.phone ?: "",
-                            userEmail = session.email ?: "",
-                            currentTab = BottomTab.HOME,
-                            currentSubScreen = SubScreen.NONE
-                        )
-                    }
-                    
-                    fetchAddresses()
                 }
-                is ApiResult.Error -> {
-                    _uiState.update {
-                        it.copy(isAuthLoading = false, authError = result.message)
-                    }
-                }
+            } catch (e: Exception) {
+                android.util.Log.e("ViewModel", "Failed to exchange ID token", e)
+                _uiState.update { it.copy(isAuthLoading = false, authError = "حدث خطأ أثناء تسجيل الدخول: ${e.localizedMessage}") }
             }
         }
     }

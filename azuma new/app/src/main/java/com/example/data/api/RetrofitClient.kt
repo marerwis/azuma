@@ -82,6 +82,9 @@ interface AzoomaApiService {
 class AuthInterceptor(private val tokenProvider: () -> String?) : okhttp3.Interceptor {
     override fun intercept(chain: okhttp3.Interceptor.Chain): okhttp3.Response {
         val token = tokenProvider()
+        
+        android.util.Log.d("AuthInterceptor", "Injecting token: ${if (token.isNullOrBlank()) "NULL or BLANK" else "PRESENT (${token.take(10)}...)"}")
+        
         val request = if (!token.isNullOrBlank()) {
             chain.request().newBuilder()
                 .header("Authorization", "Bearer $token")
