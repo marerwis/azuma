@@ -51,6 +51,19 @@ fun AzoomaApp(viewModel: AzoomaViewModel = viewModel()) {
     val coroutineScope = rememberCoroutineScope()
     val snackbarHostState = remember { SnackbarHostState() }
 
+    LaunchedEffect(uiState.authError) {
+        uiState.authError?.let { errorMsg ->
+            Toast.makeText(context, errorMsg, Toast.LENGTH_LONG).show()
+            viewModel.dismissAuthSheet() // Clears the error state
+        }
+    }
+
+    LaunchedEffect(uiState.isAuthenticated) {
+        if (uiState.isAuthenticated && uiState.userSession?.fullName != "زائر كريم" && uiState.userSession?.fullName != null) {
+            Toast.makeText(context, "مرحباً بك في عزومة! تم الدخول بنجاح", Toast.LENGTH_SHORT).show()
+        }
+    }
+
     // If unauthenticated: Display Welcome Screen (Matching User's Uploaded Screenshot)
     if (!uiState.isAuthenticated) {
         WelcomeScreen(
@@ -66,7 +79,6 @@ fun AzoomaApp(viewModel: AzoomaViewModel = viewModel()) {
                 onDismiss = { viewModel.dismissAuthSheet() },
                 onSuccess = { name, phoneOrEmail, idToken ->
                     viewModel.authenticateUser(name, phoneOrEmail, idToken)
-                    Toast.makeText(context, "مرحباً بك في عزومة! تم الدخول بنجاح", Toast.LENGTH_SHORT).show()
                 }
             )
         }
