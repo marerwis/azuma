@@ -83,7 +83,7 @@ class AuthInterceptor(private val tokenProvider: () -> String?) : okhttp3.Interc
     override fun intercept(chain: okhttp3.Interceptor.Chain): okhttp3.Response {
         val token = tokenProvider()
         
-        android.util.Log.d("AuthInterceptor", "Injecting token: ${if (token.isNullOrBlank()) "NULL or BLANK" else "PRESENT (${token.take(10)}...)"}")
+        android.util.Log.d("AuthInterceptor", "Token: ${token?.take(15)}")
         
         val request = if (!token.isNullOrBlank()) {
             chain.request().newBuilder()

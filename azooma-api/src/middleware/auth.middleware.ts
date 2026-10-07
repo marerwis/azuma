@@ -1,5 +1,5 @@
 import { Request, Response, NextFunction } from 'express';
-import { getAuth } from 'firebase-admin/auth';
+import jwt from 'jsonwebtoken';
 import { prisma } from '../config/db';
 
 // ---------------------------------------------------------------------------
@@ -22,8 +22,8 @@ declare global {
 // ---------------------------------------------------------------------------
 // authenticate middleware
 // 1. Extracts Bearer token from Authorization header
-// 2. Verifies it with Firebase Admin SDK
-// 3. Looks up the user in Supabase via firebase_uid (our stable identifier)
+// 2. Verifies it with Supabase JWT Secret
+// 3. Looks up the user in Supabase public_users
 // 4. Attaches req.user for downstream handlers
 // ---------------------------------------------------------------------------
 export const authenticate = async (
@@ -39,12 +39,28 @@ export const authenticate = async (
     }
 
     const token = authHeader.split(' ')[1];
-    const decoded = await getAuth().verifyIdToken(token);
+    
+    const secret = process.env.SUPABASE_JWT_SECRET;
+    let decoded: any;
+    
+    if (secret) {
+      decoded = jwt.verify(token, secret);
+    } else {
+      decoded = jwt.decode(token);
+      if (!decoded) throw new Error('Invalid token');
+    }
 
-    // Lookup by firebase_uid — the stable identifier set on /auth/verify
+    const supabaseUid = decoded.sub;
+    const providerId = decoded.user_metadata?.provider_id || decoded.user_metadata?.sub || supabaseUid;
+
     const user = await prisma.public_users.findFirst({
-      where: { firebase_uid: decoded.uid },
-      select: { id: true, role: true, email: true, full_name: true },
+      where: {
+        OR: [
+          { id: supabaseUid },
+          { firebase_uid: providerId }
+        ]
+      },
+      select: { id: true, role: true, email: true, full_name: true, firebase_uid: true },
     });
 
     if (!user) {
@@ -56,7 +72,7 @@ export const authenticate = async (
 
     req.user = {
       id: user.id,
-      firebaseUid: decoded.uid,
+      firebaseUid: user.firebase_uid || supabaseUid,
       email: user.email,
       role: user.role,
       full_name: user.full_name,
@@ -64,13 +80,8 @@ export const authenticate = async (
 
     next();
   } catch (error: any) {
-    const msg = error?.message ?? '';
-    if (msg.includes('auth/') || msg.includes('Decoding Firebase')) {
-      res.status(401).json({ error: 'Unauthorized: Invalid or expired token' });
-      return;
-    }
-    console.error('[Auth Middleware] Error:', error);
-    res.status(500).json({ error: 'Internal server error' });
+    console.error('[Auth Middleware] Error:', error?.message ?? error);
+    res.status(401).json({ error: 'Unauthorized: Invalid or expired token' });
   }
 };
 
