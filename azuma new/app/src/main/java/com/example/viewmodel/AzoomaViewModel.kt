@@ -263,7 +263,7 @@ class AzoomaViewModel(application: Application) : AndroidViewModel(application) 
                 }
                 
                 // 2. Get the Supabase Access Token (JWT)
-                val supabaseJwt = supabase.auth.currentAccessTokenOrNull()
+                val supabaseJwt = supabase.auth.currentSessionOrNull()?.accessToken
                 if (supabaseJwt == null) {
                     _uiState.update { it.copy(isAuthLoading = false, authError = "فشل في الحصول على توثيق Supabase") }
                     return@launch

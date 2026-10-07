@@ -48,7 +48,8 @@ class AzoomaRepository(private val api: AzoomaApiService) {
                     ApiResult.Error("Invalid server response")
                 }
             } else {
-                ApiResult.Error("Auth failed (${response.code()})", response.code())
+                val errorBody = response.errorBody()?.string() ?: ""
+                ApiResult.Error("Auth failed (${response.code()}) $errorBody", response.code())
             }
         } catch (e: Exception) {
             Log.e(TAG, "verifyFirebaseToken error", e)
@@ -199,7 +200,8 @@ class AzoomaRepository(private val api: AzoomaApiService) {
                     ApiResult.Error("Order created but no data returned")
                 }
             } else {
-                ApiResult.Error("Order creation failed (${response.code()})", response.code())
+                val errorBody = response.errorBody()?.string() ?: ""
+                ApiResult.Error("Order creation failed (${response.code()}) $errorBody", response.code())
             }
         } catch (e: Exception) {
             Log.e(TAG, "createOrder error", e)
