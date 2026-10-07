@@ -1,5 +1,5 @@
 import { Request, Response, NextFunction } from 'express';
-import jwt from 'jsonwebtoken';
+import { supabase } from '../config/supabase';
 import { prisma } from '../config/db';
 
 // ---------------------------------------------------------------------------
@@ -22,7 +22,7 @@ declare global {
 // ---------------------------------------------------------------------------
 // authenticate middleware
 // 1. Extracts Bearer token from Authorization header
-// 2. Verifies it with Supabase JWT Secret
+// 2. Verifies it with Supabase Auth
 // 3. Looks up the user in Supabase public_users
 // 4. Attaches req.user for downstream handlers
 // ---------------------------------------------------------------------------
@@ -40,18 +40,18 @@ export const authenticate = async (
 
     const token = authHeader.split(' ')[1];
     
-    const secret = process.env.SUPABASE_JWT_SECRET;
-    let decoded: any;
+    // Validate the token directly against the Supabase Auth server
+    const { data: { user: authUser }, error } = await supabase.auth.getUser(token);
     
-    if (secret) {
-      decoded = jwt.verify(token, secret);
-    } else {
-      decoded = jwt.decode(token);
-      if (!decoded) throw new Error('Invalid token');
+    if (error || !authUser) {
+      console.error('[Auth Middleware] Supabase getUser error:', error?.message);
+      res.status(401).json({ error: 'Unauthorized: Invalid or expired token' });
+      return;
     }
 
-    const supabaseUid = decoded.sub;
-    const providerId = decoded.user_metadata?.provider_id || decoded.user_metadata?.sub || supabaseUid;
+    const supabaseUid = authUser.id;
+    // provider_id can sometimes be stored in user_metadata, but we'll default to the UUID
+    const providerId = authUser.user_metadata?.provider_id || authUser.user_metadata?.sub || supabaseUid;
 
     const user = await prisma.public_users.findFirst({
       where: {
@@ -81,7 +81,7 @@ export const authenticate = async (
     next();
   } catch (error: any) {
     console.error('[Auth Middleware] Error:', error?.message ?? error);
-    res.status(401).json({ error: 'Unauthorized: Invalid or expired token' });
+    res.status(401).json({ error: 'Unauthorized: Internal auth error' });
   }
 };
 
