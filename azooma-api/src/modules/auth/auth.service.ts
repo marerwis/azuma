@@ -1,10 +1,9 @@
 import { prisma } from '../../config/db';
-import { getAuth } from 'firebase-admin/auth';
-import * as jwt from 'jsonwebtoken';
+import { supabase } from '../../config/supabase';
 
 // ---------------------------------------------------------------------------
 // Auth Service
-// Handles the Firebase token verification + user upsert in Supabase.
+// Handles the Supabase token verification + user upsert.
 // ---------------------------------------------------------------------------
 
 export interface VerifyResult {
@@ -26,36 +25,44 @@ export interface VerifyResult {
 
 export async function verifyAndSyncUser(
   idToken: string,
-  fcmToken?: string
+  fcmToken?: string,
+  fullName?: string
 ): Promise<VerifyResult> {
-  // 1. Verify the Firebase JWT — throws if invalid/expired
-  const decoded = await getAuth().verifyIdToken(idToken);
+  // 1. Verify the Supabase JWT directly — throws if invalid/expired
+  const { data: { user: authUser }, error } = await supabase.auth.getUser(idToken);
 
-  const firebaseUid = decoded.uid;
-  const phone = decoded.phone_number ?? null;
-  const email = decoded.email ?? null;
-  
-  let name = decoded.name;
-  if (!name && email) {
-    name = email.split('@')[0];
+  if (error || !authUser) {
+    throw new Error(error?.message ?? 'Invalid or expired Supabase token');
   }
-  if (!name) {
-    name = 'مستخدم جديد';
-  }
-  
-  const avatarUrl = decoded.picture ?? null;
 
-  // 2. Upsert into public.users (our Supabase table)
-  //    We use firebase_uid as the stable identifier.
+  const supabaseUid = authUser.id;
+  const email = authUser.email ?? null;
+  const phone = authUser.phone ?? null;
+  const providerSub = authUser.user_metadata?.provider_id || authUser.user_metadata?.sub || null;
+
+  // Determine name: use passed fullName, or from metadata, or from email prefix
+  let name = fullName || authUser.user_metadata?.full_name || authUser.user_metadata?.name;
+  if (!name && email) name = email.split('@')[0];
+  if (!name) name = 'مستخدم جديد';
+
+  const avatarUrl = authUser.user_metadata?.avatar_url ?? authUser.user_metadata?.picture ?? null;
+
+  // 2. Upsert into public.users
+  //    First try to find by Supabase UUID (id), then by firebase_uid (legacy migration)
   const existing = await prisma.public_users.findFirst({
-    where: { firebase_uid: firebaseUid },
+    where: {
+      OR: [
+        { id: supabaseUid },
+        ...(providerSub ? [{ firebase_uid: providerSub }] : []),
+      ],
+    },
   });
 
   let user: VerifyResult['user'];
   let isNewUser: boolean;
 
   if (existing) {
-    // Update last-seen data (fcm_token, avatar, name, email, phone if missing)
+    // Update last-seen data
     const updated = await prisma.public_users.update({
       where: { id: existing.id },
       data: {
@@ -63,7 +70,10 @@ export async function verifyAndSyncUser(
         avatar_url: avatarUrl ?? existing.avatar_url,
         email: email ?? existing.email,
         phone: phone ?? existing.phone,
-        full_name: (existing.full_name === 'مستخدم جديد' && name !== 'مستخدم جديد') ? name : existing.full_name,
+        full_name:
+          existing.full_name === 'مستخدم جديد' && name !== 'مستخدم جديد'
+            ? name
+            : existing.full_name,
         updated_at: new Date(),
       },
       select: {
@@ -79,19 +89,20 @@ export async function verifyAndSyncUser(
         created_at: true,
       },
     });
-    user = { ...updated, firebase_uid: updated.firebase_uid! };
+    user = { ...updated, firebase_uid: updated.firebase_uid ?? '' };
     isNewUser = false;
   } else {
-    // Create new user record
+    // Create new user record using the Supabase UUID as the primary id
     const created = await prisma.public_users.create({
       data: {
-        firebase_uid: firebaseUid,
-        phone: phone,
-        email: email,
+        id: supabaseUid,            // Use Supabase UUID as our PK
+        firebase_uid: providerSub,  // Store Google sub for legacy compatibility
+        phone,
+        email,
         full_name: name,
         avatar_url: avatarUrl,
         fcm_token: fcmToken ?? null,
-        role: 'customer', // default role
+        role: 'customer',
         is_active: true,
       },
       select: {
@@ -107,25 +118,11 @@ export async function verifyAndSyncUser(
         created_at: true,
       },
     });
-    user = { ...created, firebase_uid: created.firebase_uid! };
+    user = { ...created, firebase_uid: created.firebase_uid ?? '' };
     isNewUser = true;
   }
 
-  // 3. Generate a Supabase JWT for the client to use with Realtime/RLS
-  const jwtSecret = process.env.SUPABASE_JWT_SECRET;
-  if (!jwtSecret) {
-    throw new Error('SUPABASE_JWT_SECRET is missing from environment variables');
-  }
-
-  const supabaseToken = jwt.sign(
-    {
-      aud: 'authenticated',
-      role: 'authenticated',
-      sub: user.id, // Must match the UUID in public.users to satisfy auth.uid() in RLS
-    },
-    jwtSecret,
-    { expiresIn: '30d' }
-  );
-
-  return { user, isNewUser, supabaseToken };
+  // 3. Return the SAME token that was passed in — it is the valid Supabase JWT
+  //    The client should keep using this token for all subsequent requests.
+  return { user, isNewUser, supabaseToken: idToken };
 }

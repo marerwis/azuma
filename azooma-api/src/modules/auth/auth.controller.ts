@@ -5,7 +5,6 @@ import { z } from 'zod';
 // ---------------------------------------------------------------------------
 // Validation schema for the request body
 // ---------------------------------------------------------------------------
-// Accepts both camelCase (Android Moshi) and snake_case (legacy clients)
 const verifyBodySchema = z
   .object({
     idToken:  z.string().optional(),
@@ -24,18 +23,17 @@ const verifyBodySchema = z
 
 // ---------------------------------------------------------------------------
 // POST /api/v1/auth/verify
-// Body: { idToken: string, fcmToken?: string }
+// Body: { idToken: string, fcmToken?: string, fullName?: string }
 //
 // Flow:
 //  1. Validate request body
-//  2. Call auth.service → verifies Firebase JWT + upserts user in Supabase
+//  2. Verify Supabase JWT + upsert user in DB
 //  3. Return user profile + isNewUser flag
 // ---------------------------------------------------------------------------
 export async function verifyController(
   req: Request,
   res: Response
 ): Promise<void> {
-  // 1. Validate body
   const parsed = verifyBodySchema.safeParse(req.body);
   if (!parsed.success) {
     res.status(400).json({
@@ -45,13 +43,11 @@ export async function verifyController(
     return;
   }
 
-  const { idToken, fcmToken } = parsed.data;
+  const { idToken, fcmToken, fullName } = parsed.data;
 
   try {
-    // 2. Verify + sync
-    const { user, isNewUser, supabaseToken } = await verifyAndSyncUser(idToken!, fcmToken);
+    const { user, isNewUser, supabaseToken } = await verifyAndSyncUser(idToken!, fcmToken, fullName);
 
-    // 3. Respond
     res.status(200).json({
       success: true,
       isNewUser,
@@ -68,18 +64,17 @@ export async function verifyController(
     });
   } catch (error: any) {
     const message = error?.message ?? 'Unknown error';
+    console.error('[AuthController] verifyController error:', message);
 
-    // Firebase token errors
     if (
-      message.includes('auth/id-token-expired') ||
-      message.includes('auth/argument-error') ||
-      message.includes('Decoding Firebase ID token failed')
+      message.includes('Invalid or expired') ||
+      message.includes('JWT') ||
+      message.includes('token')
     ) {
-      res.status(401).json({ error: 'Invalid or expired Firebase token' });
+      res.status(401).json({ error: `Unauthorized: ${message}` });
       return;
     }
 
-    console.error('[AuthController] verifyController error:', error);
     res.status(500).json({ error: 'Internal server error' });
   }
 }
