@@ -27,7 +27,7 @@ class AdminPanelApp extends ConsumerWidget {
     return MaterialApp(
       title: 'Azooma Admin Panel',
       debugShowCheckedModeBanner: false,
-      theme: AdminTheme.lightTheme,
+      theme: AdminTheme.darkTheme,
       builder: (context, child) {
         return Directionality(
           textDirection: TextDirection.rtl,
