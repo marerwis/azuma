@@ -12,7 +12,7 @@ final _db = Supabase.instance.client;
 final dashboardStatsProvider =
     FutureProvider<Map<String, dynamic>>((ref) async {
   final results = await Future.wait([
-    _db.from('orders').select('id, status, total_price, created_at').order('created_at', ascending: false).limit(200),
+    _db.from('orders').select('id, status, total_amount, created_at').order('created_at', ascending: false).limit(200),
     _db.from('users').select('id, role, created_at').order('created_at', ascending: false),
     _db.from('stores').select('id, name, is_active, created_at').order('created_at', ascending: false),
     _db.from('products').select('id, is_active').limit(1000),
@@ -29,12 +29,12 @@ final dashboardStatsProvider =
 
   final customers = users.where((u) => u['role'] == 'customer').length;
   final drivers   = users.where((u) => u['role'] == 'driver').length;
-  final pending   = orders.where((o) => o['status'] == 'pending').length;
-  final completed = orders.where((o) => o['status'] == 'completed').length;
+  final pending   = orders.where((o) => o['status'] == 'pending' || o['status'] == 'preparing').length;
+  final completed = orders.where((o) => o['status'] == 'completed' || o['status'] == 'delivered').length;
   final cancelled = orders.where((o) => o['status'] == 'cancelled').length;
   final revenue   = orders
-      .where((o) => o['status'] == 'completed')
-      .fold<double>(0, (s, o) => s + ((o['total_price'] as num?)?.toDouble() ?? 0));
+      .where((o) => o['status'] == 'completed' || o['status'] == 'delivered')
+      .fold<double>(0, (s, o) => s + (((o['total_amount'] ?? o['total_price']) as num?)?.toDouble() ?? 0));
   final avgRating = reviews.isEmpty
       ? 0.0
       : reviews.fold<double>(0, (s, r) => s + ((r['rating'] as num?)?.toDouble() ?? 0)) /
@@ -624,7 +624,7 @@ class _RecentOrdersCard extends StatelessWidget {
               final i = e.key;
               final o = e.value;
               final status = o['status']?.toString() ?? 'pending';
-              final price = (o['total_price'] as num?)?.toDouble() ?? 0;
+              final price = (((o['total_amount'] ?? o['total_price']) as num?)?.toDouble() ?? 0);
               final date = o['created_at'] != null
                   ? timeFmt.format(DateTime.parse(o['created_at']).toLocal())
                   : '--';
