@@ -1,0 +1,27 @@
+# Auto detect text files and normalize line endings
+* text=auto
+
+# Force LF for shell scripts (critical for Linux/Vercel execution)
+*.sh text eol=lf
+*.bash text eol=lf
+
+# Force LF for web files
+*.json text eol=lf
+*.yaml text eol=lf
+*.yml text eol=lf
+*.dart text eol=lf
+*.ts text eol=lf
+*.js text eol=lf
+*.html text eol=lf
+*.css text eol=lf
+*.md text eol=lf
+
+# Binary files - no conversion
+*.png binary
+*.jpg binary
+*.jpeg binary
+*.gif binary
+*.ico binary
+*.wasm binary
+*.otf binary
+*.ttf binary

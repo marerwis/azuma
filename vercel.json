@@ -1,7 +1,7 @@
 {
-  "buildCommand": "bash build.sh",
+  "buildCommand": "git config --global --add safe.directory '*' && curl -fsSL https://storage.googleapis.com/flutter_infra_release/releases/stable/linux/flutter_linux_3.32.0-stable.tar.xz | tar xJ -C $HOME && export PATH=$HOME/flutter/bin:$PATH && cd admin_panel && $HOME/flutter/bin/flutter pub get --no-color && $HOME/flutter/bin/flutter build web --release --no-pub --no-color",
   "outputDirectory": "admin_panel/build/web",
-  "installCommand": "echo 'Flutter will be installed by build.sh'",
+  "installCommand": "echo 'Build handled by buildCommand'",
   "rewrites": [
     { "source": "/(.*)", "destination": "/index.html" }
   ],
