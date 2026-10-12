@@ -1,0 +1,59 @@
+name: 🚀 Deploy Azooma Admin Panel
+
+on:
+  push:
+    branches:
+      - main
+    paths:
+      - 'admin_panel/**'
+
+permissions:
+  contents: read
+  pages: write
+  id-token: write
+
+concurrency:
+  group: "pages"
+  cancel-in-progress: false
+
+jobs:
+  build-and-deploy:
+    runs-on: ubuntu-latest
+    environment:
+      name: github-pages
+      url: ${{ steps.deployment.outputs.page_url }}
+
+    steps:
+      - name: ⬇️ Checkout Repository
+        uses: actions/checkout@v4
+
+      - name: 🐦 Setup Flutter
+        uses: subosito/flutter-action@v2
+        with:
+          flutter-version: '3.32.0'
+          channel: 'stable'
+          cache: true
+
+      - name: 📦 Get dependencies
+        working-directory: admin_panel
+        run: flutter pub get
+
+      - name: 🔨 Build Flutter Web
+        working-directory: admin_panel
+        run: |
+          flutter build web \
+            --release \
+            --base-href "/azuma/" \
+            --no-pub
+
+      - name: 🗂️ Setup Pages
+        uses: actions/configure-pages@v4
+
+      - name: 📤 Upload Pages artifact
+        uses: actions/upload-pages-artifact@v3
+        with:
+          path: admin_panel/build/web
+
+      - name: 🌐 Deploy to GitHub Pages
+        id: deployment
+        uses: actions/deploy-pages@v4
