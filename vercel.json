@@ -1,28 +1,10 @@
 {
-  "buildCommand": "git config --global --add safe.directory '*' && curl -fsSL https://storage.googleapis.com/flutter_infra_release/releases/stable/linux/flutter_linux_3.32.0-stable.tar.xz | tar xJ -C $HOME && export PATH=$HOME/flutter/bin:$PATH && cd admin_panel && $HOME/flutter/bin/flutter pub get --no-color && $HOME/flutter/bin/flutter build web --release --no-pub --no-color",
+  "buildCommand": "cd admin_panel && sed -i 's/\r$//' build.sh && bash build.sh",
   "outputDirectory": "admin_panel/build/web",
-  "installCommand": "echo 'Build handled by buildCommand'",
   "rewrites": [
-    { "source": "/(.*)", "destination": "/index.html" }
-  ],
-  "headers": [
     {
-      "source": "/index.html",
-      "headers": [
-        { "key": "Cache-Control", "value": "no-cache, no-store, must-revalidate" }
-      ]
-    },
-    {
-      "source": "/flutter_bootstrap.js",
-      "headers": [
-        { "key": "Cache-Control", "value": "no-cache" }
-      ]
-    },
-    {
-      "source": "/(.*\\.js|.*\\.wasm)",
-      "headers": [
-        { "key": "Cache-Control", "value": "public, max-age=31536000, immutable" }
-      ]
+      "source": "/(.*)",
+      "destination": "/index.html"
     }
   ]
 }
