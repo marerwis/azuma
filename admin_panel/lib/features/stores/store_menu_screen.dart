@@ -735,19 +735,7 @@ class _AddEditProductDialogState extends State<_AddEditProductDialog> {
     if (_formKey.currentState!.validate() && _selectedCategoryId != null) {
       setState(() => _isLoading = true);
       try {
-        final data = {
-          'store_id': widget.storeId,
-          // ✅ Strict FK: references menu_categories.id (NOT app_categories)
-          'menu_category_id': _selectedCategoryId,
-          'name': _nameController.text,
-          'description': _descriptionController.text,
-          'base_price': double.tryParse(_priceController.text) ?? 0.0,
-          'stock_quantity': int.tryParse(_stockController.text) ?? 0,
-          'image_url': _imageUrlController.text.isEmpty
-              ? null
-              : _imageUrlController.text,
-          'is_active': _isActive,
-        };
+        // Parameters passed directly to createProduct/updateProduct below.
 
         if (widget.product == null) {
           await widget.ref.read(productRepositoryProvider).createProduct(
