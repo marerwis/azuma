@@ -5,17 +5,46 @@ final productRepositoryProvider = Provider<ProductRepository>((ref) {
   return ProductRepository();
 });
 
-/// Provider for products belonging to a specific store.
-final storeProductsProvider = FutureProvider.family<List<Map<String, dynamic>>, String>((ref, storeId) async {
-  final repository = ref.read(productRepositoryProvider);
-  return repository.getProductsByStore(storeId);
+// ── Catalogue list (all products, admin view) ──────────────────────────────────
+
+final allProductsProvider =
+    FutureProvider<List<Map<String, dynamic>>>((ref) async {
+  return ref.read(productRepositoryProvider).getAllProducts();
 });
 
-/// Store-scoped menu categories provider.
-/// Strictly fetches from [menu_categories] where store_id = [storeId].
-/// Completely isolated from [app_categories] (Home Screen categories).
-final storeMenuCategoriesProvider = FutureProvider.family<List<Map<String, dynamic>>, String>((ref, storeId) async {
-  final repository = ref.read(productRepositoryProvider);
-  return repository.getMenuCategoriesByStore(storeId);
+// ── Store-scoped products (used by store_menu_screen) ────────────────────────
+
+final storeProductsProvider =
+    FutureProvider.family<List<Map<String, dynamic>>, String>(
+        (ref, storeId) async {
+  return ref.read(productRepositoryProvider).getProductsByStore(storeId);
 });
 
+// ── Store-scoped menu categories (used by store_menu_screen) ─────────────────
+
+final storeMenuCategoriesProvider =
+    FutureProvider.family<List<Map<String, dynamic>>, String>(
+        (ref, storeId) async {
+  return ref
+      .read(productRepositoryProvider)
+      .getMenuCategoriesByStore(storeId);
+});
+
+// ── Form support providers ────────────────────────────────────────────────────
+
+final storesListProvider =
+    FutureProvider<List<Map<String, dynamic>>>((ref) async {
+  return ref.read(productRepositoryProvider).getAllStores();
+});
+
+final appCategoriesProvider =
+    FutureProvider<List<Map<String, dynamic>>>((ref) async {
+  return ref.read(productRepositoryProvider).getAppCategories();
+});
+
+/// Menu categories for a specific store — used in the product form.
+final menuCategoriesForStoreProvider =
+    FutureProvider.family<List<Map<String, dynamic>>, String>((ref, storeId) async {
+  if (storeId.isEmpty) return [];
+  return ref.read(productRepositoryProvider).getMenuCategoriesByStore(storeId);
+});

@@ -750,11 +750,40 @@ class _AddEditProductDialogState extends State<_AddEditProductDialog> {
         };
 
         if (widget.product == null) {
-          await widget.ref.read(productRepositoryProvider).createProduct(data);
+          await widget.ref.read(productRepositoryProvider).createProduct(
+            storeId: widget.storeId,
+            categoryId: null,
+            menuCategoryId: _selectedCategoryId,
+            name: _nameController.text.trim(),
+            description: _descriptionController.text.trim().isEmpty
+                ? null
+                : _descriptionController.text.trim(),
+            basePrice: double.tryParse(_priceController.text) ?? 0.0,
+            stockQuantity: int.tryParse(_stockController.text) ?? 0,
+            isVeg: false,
+            isActive: _isActive,
+            imageUrl: _imageUrlController.text.isEmpty
+                ? null
+                : _imageUrlController.text,
+          );
         } else {
-          await widget.ref
-              .read(productRepositoryProvider)
-              .updateProduct(widget.product!['id'], data);
+          await widget.ref.read(productRepositoryProvider).updateProduct(
+            widget.product!['id'].toString(),
+            storeId: widget.storeId,
+            categoryId: widget.product!['category_id']?.toString(),
+            menuCategoryId: _selectedCategoryId,
+            name: _nameController.text.trim(),
+            description: _descriptionController.text.trim().isEmpty
+                ? null
+                : _descriptionController.text.trim(),
+            basePrice: double.tryParse(_priceController.text) ?? 0.0,
+            stockQuantity: int.tryParse(_stockController.text) ?? 0,
+            isVeg: widget.product!['is_veg'] as bool? ?? false,
+            isActive: _isActive,
+            imageUrl: _imageUrlController.text.isEmpty
+                ? null
+                : _imageUrlController.text,
+          );
         }
 
         widget.ref.invalidate(storeProductsProvider(widget.storeId));
