@@ -195,7 +195,7 @@ class OverviewScreen extends ConsumerWidget {
                     value: '${s['reviews']}',
                     icon: Icons.star,
                     colors: [const Color(0xFFB45309), const Color(0xFFF59E0B)],
-                    sub: '★ ${(s['avg_rating'] as double).toStringAsFixed(1)} متوسط',
+                    sub: '★ ${((s['avg_rating'] as num?)?.toDouble() ?? 0.0).toStringAsFixed(1)} متوسط',
                     subColor: AzColor.warning,
                     onTap: () => ref.read(selectedIndexProvider.notifier).setIndex(12),
                   ),
@@ -255,7 +255,12 @@ class _TopBar extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final now = DateFormat('EEEE, d MMMM yyyy', 'ar').format(DateTime.now());
+    String now;
+    try {
+      now = DateFormat('EEEE, d MMMM yyyy', 'ar').format(DateTime.now());
+    } catch (_) {
+      now = DateFormat('yyyy-MM-dd').format(DateTime.now());
+    }
     return Container(
       padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 16),
       decoration: BoxDecoration(
