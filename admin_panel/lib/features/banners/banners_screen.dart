@@ -263,7 +263,8 @@ class _AddEditBannerDialogState extends State<_AddEditBannerDialog> {
           fileOptions: const FileOptions(upsert: true),
         );
 
-        final String publicUrl = Supabase.instance.client.storage.from('store_images').getPublicUrl(uniqueName);
+        // publicUrl intentionally not used; we store only the relative uniqueName.
+        Supabase.instance.client.storage.from('store_images').getPublicUrl(uniqueName);
         
         setState(() {
           _imageUrlController.text = uniqueName; // ONLY save the relative unique name!

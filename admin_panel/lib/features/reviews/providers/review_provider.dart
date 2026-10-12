@@ -28,8 +28,21 @@ class ReviewFilter {
 
 const _sentinel = Object();
 
+/// NotifierProvider replaces StateProvider for complex state objects.
+class ReviewFilterNotifier extends Notifier<ReviewFilter> {
+  @override
+  ReviewFilter build() => const ReviewFilter();
+
+  void update(ReviewFilter Function(ReviewFilter) updater) {
+    state = updater(state);
+  }
+
+  void clear() => state = const ReviewFilter();
+}
+
 final reviewFilterProvider =
-    StateProvider<ReviewFilter>((ref) => const ReviewFilter());
+    NotifierProvider<ReviewFilterNotifier, ReviewFilter>(
+        ReviewFilterNotifier.new);
 
 /// Reviews list, reactive to filter changes.
 final reviewsProvider =

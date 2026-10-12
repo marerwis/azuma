@@ -1,7 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'providers/navigation_provider.dart';
-import '../stores/stores_screen.dart';
 import '../orders/orders_screen.dart';
 import '../wallets/wallets_screen.dart';
 import '../banners/banners_screen.dart';

@@ -36,7 +36,7 @@ class _SendNotificationScreenState
       return;
     }
 
-    ref.read(notifSendingProvider.notifier).state = true;
+    ref.read(notifSendingProvider.notifier).setSending(true);
     try {
       final currentUser = Supabase.instance.client.auth.currentUser;
       await ref.read(notificationRepositoryProvider).saveNotification(
@@ -64,7 +64,7 @@ class _SendNotificationScreenState
     } catch (e) {
       if (mounted) _showSnack('خطأ: $e', isError: true);
     } finally {
-      ref.read(notifSendingProvider.notifier).state = false;
+      ref.read(notifSendingProvider.notifier).setSending(false);
     }
   }
 
@@ -119,7 +119,7 @@ class _SendNotificationScreenState
                             Container(
                               padding: const EdgeInsets.all(8),
                               decoration: BoxDecoration(
-                                color: const Color(0xFFFF5722).withOpacity(0.1),
+                                color: const Color(0xFFFF5722).withValues(alpha: 0.1),
                                 borderRadius: BorderRadius.circular(8),
                               ),
                               child: const Icon(Icons.notifications_active,
@@ -289,7 +289,7 @@ class _SendNotificationScreenState
                           return SizedBox(
                             width: double.infinity,
                             child: DataTable(
-                              headingRowColor: MaterialStateProperty.all(
+                              headingRowColor: WidgetStateProperty.all(
                                   Colors.grey.shade100),
                               columnSpacing: 20,
                               columns: const [
@@ -370,7 +370,7 @@ class _TargetTypeSelector extends StatelessWidget {
                 padding: const EdgeInsets.symmetric(vertical: 12),
                 decoration: BoxDecoration(
                   color: isSelected
-                      ? const Color(0xFFFF5722).withOpacity(0.12)
+                      ? const Color(0xFFFF5722).withValues(alpha: 0.12)
                       : Colors.grey.shade100,
                   border: Border.all(
                       color: isSelected
@@ -457,8 +457,8 @@ class _PreviewChip extends StatelessWidget {
     return Container(
       padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
       decoration: BoxDecoration(
-        color: color.withOpacity(0.08),
-        border: Border.all(color: color.withOpacity(0.3)),
+        color: color.withValues(alpha: 0.08),
+        border: Border.all(color: color.withValues(alpha: 0.3)),
         borderRadius: BorderRadius.circular(8),
       ),
       child: Row(
@@ -488,8 +488,8 @@ class _StatusBadge extends StatelessWidget {
     return Container(
       padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
       decoration: BoxDecoration(
-        color: color.withOpacity(0.1),
-        border: Border.all(color: color.withOpacity(0.4)),
+        color: color.withValues(alpha: 0.1),
+        border: Border.all(color: color.withValues(alpha: 0.4)),
         borderRadius: BorderRadius.circular(20),
       ),
       child: Text(label,

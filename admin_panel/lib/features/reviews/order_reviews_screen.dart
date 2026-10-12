@@ -83,7 +83,7 @@ class OrderReviewsScreen extends ConsumerWidget {
                       width: 20,
                       height: 20,
                       child: CircularProgressIndicator(strokeWidth: 2)),
-                  error: (_, __) => const SizedBox.shrink(),
+                  error: (_, _e) => const SizedBox.shrink(),
                 ),
 
                 const Spacer(),
@@ -95,9 +95,8 @@ class OrderReviewsScreen extends ConsumerWidget {
                   TextButton.icon(
                     icon: const Icon(Icons.clear, size: 16),
                     label: const Text('مسح التصفية'),
-                    onPressed: () => ref
-                        .read(reviewFilterProvider.notifier)
-                        .state = const ReviewFilter(),
+                    onPressed: () =>
+                        ref.read(reviewFilterProvider.notifier).clear(),
                   ),
               ],
             ),
@@ -137,7 +136,7 @@ class OrderReviewsScreen extends ConsumerWidget {
                       shape: RoundedRectangleBorder(
                           borderRadius: BorderRadius.circular(12)),
                       child: DataTable(
-                        headingRowColor: MaterialStateProperty.all(
+                        headingRowColor: WidgetStateProperty.all(
                             Colors.grey.shade100),
                         columnSpacing: 20,
                         columns: const [
@@ -339,7 +338,7 @@ class _RatingFilterChips extends StatelessWidget {
               ],
             ),
             selected: isSelected,
-            onSelected: (_) => onChanged(isSelected ? null : star),
+            onSelected: (_x) => onChanged(isSelected ? null : star),
             selectedColor: const Color(0xFFFF5722),
             checkmarkColor: Colors.white,
           ),

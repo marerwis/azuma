@@ -24,4 +24,12 @@ final notifDriversProvider =
 });
 
 /// Tracks whether the send operation is in progress.
-final notifSendingProvider = StateProvider<bool>((ref) => false);
+class _SendingNotifier extends Notifier<bool> {
+  @override
+  bool build() => false;
+
+  void setSending(bool value) => state = value;
+}
+
+final notifSendingProvider =
+    NotifierProvider<_SendingNotifier, bool>(_SendingNotifier.new);

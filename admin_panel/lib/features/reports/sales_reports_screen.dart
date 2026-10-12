@@ -208,7 +208,7 @@ class _KpiCard extends StatelessWidget {
               Container(
                 padding: const EdgeInsets.all(12),
                 decoration: BoxDecoration(
-                  color: color.withOpacity(0.1),
+                  color: color.withValues(alpha: 0.1),
                   borderRadius: BorderRadius.circular(10),
                 ),
                 child: Icon(icon, color: color, size: 28),
@@ -265,7 +265,7 @@ class _CompletionRateBar extends StatelessWidget {
               child: LinearProgressIndicator(
                 value: rate,
                 minHeight: 20,
-                backgroundColor: Colors.red.withOpacity(0.15),
+                backgroundColor: Colors.red.withValues(alpha: 0.15),
                 valueColor:
                     const AlwaysStoppedAnimation<Color>(Colors.green),
               ),
@@ -313,7 +313,7 @@ class _OrdersBreakdownTable extends StatelessWidget {
               width: double.infinity,
               child: DataTable(
                 headingRowColor:
-                    MaterialStateProperty.all(Colors.grey.shade100),
+                    WidgetStateProperty.all(Colors.grey.shade100),
                 columns: const [
                   DataColumn(label: Text('رقم الطلب')),
                   DataColumn(label: Text('التاريخ')),
@@ -377,7 +377,7 @@ class _TopStoresTable extends StatelessWidget {
                 width: double.infinity,
                 child: DataTable(
                   headingRowColor:
-                      MaterialStateProperty.all(Colors.grey.shade100),
+                      WidgetStateProperty.all(Colors.grey.shade100),
                   columns: const [
                     DataColumn(label: Text('#')),
                     DataColumn(label: Text('المطعم')),
@@ -431,8 +431,8 @@ class _StatusChip extends StatelessWidget {
     return Container(
       padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
       decoration: BoxDecoration(
-          color: color.withOpacity(0.1),
-          border: Border.all(color: color.withOpacity(0.4)),
+          color: color.withValues(alpha: 0.1),
+          border: Border.all(color: color.withValues(alpha: 0.4)),
           borderRadius: BorderRadius.circular(20)),
       child: Text(label,
           style: TextStyle(
